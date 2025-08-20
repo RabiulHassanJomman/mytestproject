@@ -2135,6 +2135,33 @@ body {
   scrollbar-color: rgba(0, 212, 255, 0.6) rgba(25, 15, 50, 0.8);
 }
 
+/* Profile Modal Scrollbar Styling */
+#profile-card::-webkit-scrollbar {
+  width: 8px;
+}
+
+#profile-card::-webkit-scrollbar-track {
+  background: rgba(250, 21, 136, 0.1);
+  border-radius: 4px;
+}
+
+#profile-card::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, rgb(250, 21, 136), #ff6b9d);
+  border-radius: 4px;
+  border: 1px solid rgba(250, 21, 136, 0.3);
+}
+
+#profile-card::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #ff6b9d, rgb(250, 21, 136));
+  box-shadow: 0 0 10px rgba(250, 21, 136, 0.5);
+}
+
+/* Firefox scrollbar styling for profile modal */
+#profile-card {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(250, 21, 136) rgba(250, 21, 136, 0.1);
+}
+
 .routine-table table {
   width: 100%;
   min-width: 1000px;
@@ -2435,3 +2462,5 @@ body {
   font-size: 14px;
   letter-spacing: 0.2px;
 }
+
+
