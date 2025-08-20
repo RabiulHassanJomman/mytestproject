@@ -7,7 +7,6 @@ export let coursesArray = [];
 export let currentSelectedCourse = null;
 export let currentActiveTab = 'books';
 export let currentActiveSection = 'all';
-export let expandedSections = new Set(['books']); // Track which sections are expanded
 
 // Load courses from Firebase
 export async function loadCoursesFromFirebase() {
@@ -80,103 +79,34 @@ export async function loadAndDisplayResources(courseId, resourceType, section) {
   renderResourcePanel(courseId, resourceType, resources, section);
 }
 
-// Render resource panel with expandable functionality
+// Render resource panel
 export function renderResourcePanel(courseId, resourceType, resources, section) {
   const panelId = `course-${resourceType}`;
   const panel = document.getElementById(panelId);
   if (!panel) return;
   
   if (!resources.length) {
-    panel.innerHTML = `
-      <div class="resource-section-header" data-resource-type="${resourceType}">
-        <div class="resource-section-title">
-          <span class="expand-icon">▶</span>
-          <span class="resource-type-label">${getResourceTypeLabel(resourceType)}</span>
-          <span class="resource-count">(0 resources)</span>
-        </div>
-      </div>
-      <div class="resource-section-content collapsed">
-        <div class="no-notes">No resources available for this section.</div>
-      </div>
-    `;
+    panel.innerHTML = '<div class="no-notes">No resources available for this section.</div>';
     return;
   }
   
-  const isExpanded = expandedSections.has(resourceType);
-  const expandIcon = isExpanded ? '▼' : '▶';
-  const contentClass = isExpanded ? '' : 'collapsed';
-  
-  const resourcesHTML = `
-    <div class="resource-section-header" data-resource-type="${resourceType}">
-      <div class="resource-section-title">
-        <span class="expand-icon">${expandIcon}</span>
-        <span class="resource-type-label">${getResourceTypeLabel(resourceType)}</span>
-        <span class="resource-count">(${resources.length} resource${resources.length !== 1 ? 's' : ''})</span>
+  const resourcesHTML = resources.map(resource => `
+    <div class="note-item">
+      <div class="note-info">
+        <h4>${resource.title}</h4>
+        <p>${resource.description || 'No description available'}</p>
+        ${resource.section ? `<span class="section-badge">Section ${resource.section}</span>` : ''}
       </div>
+      <a href="${resource.url}" target="_blank" class="note-link" rel="noopener noreferrer">
+        📎 View Resource
+      </a>
     </div>
-    <div class="resource-section-content ${contentClass}">
-      ${resources.map(resource => `
-        <div class="note-item">
-          <div class="note-info">
-            <h4>${resource.title}</h4>
-            <p>${resource.description || 'No description available'}</p>
-            ${resource.section ? `<span class="section-badge">Section ${resource.section}</span>` : ''}
-          </div>
-          <a href="${resource.url}" target="_blank" class="note-link" rel="noopener noreferrer">
-            📎 View Resource
-          </a>
-        </div>
-      `).join('')}
-    </div>
-  `;
+  `).join('');
   
   panel.innerHTML = resourcesHTML;
-  
-  // Add expand/collapse functionality
-  const header = panel.querySelector('.resource-section-header');
-  if (header) {
-    header.addEventListener('click', () => toggleResourceSection(resourceType, panel));
-  }
 }
 
-// Toggle resource section expansion
-export function toggleResourceSection(resourceType, panel) {
-  const header = panel.querySelector('.resource-section-header');
-  const content = panel.querySelector('.resource-section-content');
-  const expandIcon = panel.querySelector('.expand-icon');
-  
-  // Add loading state
-  header.classList.add('loading');
-  
-  // Small delay to show loading state
-  setTimeout(() => {
-    if (expandedSections.has(resourceType)) {
-      // Collapse
-      expandedSections.delete(resourceType);
-      content.classList.add('collapsed');
-      expandIcon.textContent = '▶';
-    } else {
-      // Expand
-      expandedSections.add(resourceType);
-      content.classList.remove('collapsed');
-      expandIcon.textContent = '▼';
-    }
-    
-    // Remove loading state
-    header.classList.remove('loading');
-  }, 150);
-}
 
-// Get human-readable resource type label
-function getResourceTypeLabel(resourceType) {
-  const labels = {
-    'books': '📚 Books',
-    'slides': '📊 Lecture Slides',
-    'student-notes': '👨‍🎓 Student Notes',
-    'lab-reports': '🧪 Lab Reports'
-  };
-  return labels[resourceType] || resourceType;
-}
 
 // Clear all resource panels
 export function clearAllResourcePanels() {
@@ -184,18 +114,7 @@ export function clearAllResourcePanels() {
   panels.forEach(panelId => {
     const panel = document.getElementById(panelId);
     if (panel) {
-      panel.innerHTML = `
-        <div class="resource-section-header" data-resource-type="${panelId.replace('course-', '')}">
-          <div class="resource-section-title">
-            <span class="expand-icon">▶</span>
-            <span class="resource-type-label">${getResourceTypeLabel(panelId.replace('course-', ''))}</span>
-            <span class="resource-count">(0 resources)</span>
-          </div>
-        </div>
-        <div class="resource-section-content collapsed">
-          <div class="no-notes">Select a course to view resources.</div>
-        </div>
-      `;
+      panel.innerHTML = '<div class="no-notes">Select a course to view resources.</div>';
     }
   });
 }
@@ -218,25 +137,6 @@ export function switchResourceTab(tabName) {
   
   if (currentSelectedCourse) {
     loadAndDisplayResources(currentSelectedCourse, tabName, currentActiveSection);
-  }
-  
-  // Auto-expand the new tab if it has resources and wasn't previously expanded
-  if (currentSelectedCourse && !expandedSections.has(tabName)) {
-    // Small delay to ensure the panel is rendered
-    setTimeout(() => {
-      const panel = document.getElementById(`course-${tabName}`);
-      if (panel && panel.querySelector('.resource-section-content')) {
-        const content = panel.querySelector('.resource-section-content');
-        if (content && !content.classList.contains('collapsed') && content.querySelector('.note-item')) {
-          expandedSections.add(tabName);
-          const header = panel.querySelector('.resource-section-header');
-          const expandIcon = panel.querySelector('.expand-icon');
-          if (header && expandIcon) {
-            expandIcon.textContent = '▼';
-          }
-        }
-      }
-    }, 100);
   }
 }
 
@@ -300,8 +200,6 @@ export function actuallyCloseRoutinesModal() {
   currentSelectedCourse = null;
   currentActiveTab = 'books';
   currentActiveSection = 'all';
-  expandedSections.clear();
-  expandedSections.add('books'); // Reset to default expanded state
 }
 
 export function closeRoutinesModal() {

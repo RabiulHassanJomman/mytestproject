@@ -350,7 +350,7 @@
     return html;
   }
 
-  // Resources CRUD and listing
+  // Resources CRUD and listing with expandable sections
   async function loadAndRenderResources() {
     var d = ensureDb();
     var listEl = getEls().resourcesList;
@@ -359,30 +359,94 @@
     var snap = await d.collection('resources').orderBy('createdAt', 'desc').get();
     cache.resourcesById = {};
     if (snap.empty) { listEl.innerHTML = '<div class="empty-hint">No resources yet.</div>'; return; }
-    var html = '';
+    
+    // Group resources by type
+    var resourcesByType = {};
     snap.forEach(function (doc) {
       var r = doc.data();
       cache.resourcesById[doc.id] = r;
-      var course = cache.coursesById[r.courseId];
-      var courseLabel = course ? (course.title || course.code || r.courseId) : (r.courseId || 'Course');
-      var typeLabel = r.type || 'resource';
+      var type = r.type || 'other';
+      if (!resourcesByType[type]) {
+        resourcesByType[type] = [];
+      }
+      resourcesByType[type].push({ id: doc.id, data: r });
+    });
+    
+    var html = '';
+    var resourceTypes = ['books', 'slides', 'student-notes', 'lab-reports', 'other'];
+    
+    resourceTypes.forEach(function (type) {
+      if (!resourcesByType[type] || resourcesByType[type].length === 0) return;
+      
+      var typeLabel = getResourceTypeLabel(type);
+      var resourceCount = resourcesByType[type].length;
+      var isExpanded = cache.expandedResourceTypes && cache.expandedResourceTypes.has(type);
+      
       html += (
-        '        <div class="notice-admin-item" data-id="' + doc.id + '">\n' +
-        '          <div class="notice-admin-header">\n' +
-        '            <div class="notice-admin-info">\n' +
-        '              <h3>' + escapeHtml(r.title || 'Untitled') + '</h3>\n' +
-        '              <p>📚 ' + escapeHtml(courseLabel) + ' | 🏷️ ' + escapeHtml(typeLabel) + (r.section && r.section !== 'all' ? (' | Section ' + escapeHtml(r.section)) : '') + '</p>\n' +
-        '            </div>\n' +
-        '            <div class="notice-admin-actions">\n' +
-        '              <button data-action="edit">Edit</button>\n' +
-        '              <button class="delete-btn" data-action="delete">Delete</button>\n' +
+        '        <div class="admin-resource-section" data-type="' + type + '">\n' +
+        '          <div class="admin-resource-header" data-type="' + type + '">\n' +
+        '            <div class="admin-resource-title">\n' +
+        '              <span class="admin-expand-icon">' + (isExpanded ? '▼' : '▶') + '</span>\n' +
+        '              <span class="admin-resource-type-label">' + typeLabel + '</span>\n' +
+        '              <span class="admin-resource-count">(' + resourceCount + ' resource' + (resourceCount !== 1 ? 's' : '') + ')</span>\n' +
         '            </div>\n' +
         '          </div>\n' +
-        '          <div class="notice-admin-content">' + escapeHtml(r.description || '') + (r.url ? ('<br><a href="' + escapeAttr(r.url) + '" target="_blank" rel="noopener noreferrer">Open link</a>') : '') + '</div>\n' +
-        '        </div>'
+        '          <div class="admin-resource-content' + (isExpanded ? '' : ' collapsed') + '">\n'
       );
+      
+      resourcesByType[type].forEach(function (item) {
+        var r = item.data;
+        var course = cache.coursesById[r.courseId];
+        var courseLabel = course ? (course.title || course.code || r.courseId) : (r.courseId || 'Course');
+        html += (
+          '            <div class="notice-admin-item" data-id="' + item.id + '">\n' +
+          '              <div class="notice-admin-header">\n' +
+          '                <div class="notice-admin-info">\n' +
+          '                  <h3>' + escapeHtml(r.title || 'Untitled') + '</h3>\n' +
+          '                  <p>📚 ' + escapeHtml(courseLabel) + ' | 🏷️ ' + escapeHtml(type) + (r.section && r.section !== 'all' ? (' | Section ' + escapeHtml(r.section)) : '') + '</p>\n' +
+          '                </div>\n' +
+          '                <div class="notice-admin-actions">\n' +
+          '                  <button data-action="edit">Edit</button>\n' +
+          '                  <button class="delete-btn" data-action="delete">Delete</button>\n' +
+          '                </div>\n' +
+          '              </div>\n' +
+          '              <div class="notice-admin-content">' + escapeHtml(r.description || '') + (r.url ? ('<br><a href="' + escapeAttr(r.url) + '" target="_blank" rel="noopener noreferrer">Open link</a>') : '') + '</div>\n' +
+          '            </div>\n'
+        );
+      });
+      
+      html += '          </div>\n        </div>\n';
     });
+    
     listEl.innerHTML = html;
+    
+    // Add expand/collapse functionality
+    qsa('#resourcesList .admin-resource-header').forEach(function (header) {
+      header.addEventListener('click', function () {
+        var type = this.dataset.type;
+        var section = this.closest('.admin-resource-section');
+        var content = section.querySelector('.admin-resource-content');
+        var expandIcon = this.querySelector('.admin-expand-icon');
+        
+        if (!cache.expandedResourceTypes) {
+          cache.expandedResourceTypes = new Set();
+        }
+        
+        if (cache.expandedResourceTypes.has(type)) {
+          // Collapse
+          cache.expandedResourceTypes.delete(type);
+          content.classList.add('collapsed');
+          expandIcon.textContent = '▶';
+        } else {
+          // Expand
+          cache.expandedResourceTypes.add(type);
+          content.classList.remove('collapsed');
+          expandIcon.textContent = '▼';
+        }
+      });
+    });
+    
+    // Add event listeners for resource actions
     qsa('#resourcesList .notice-admin-item').forEach(function (row) {
       var id = row.getAttribute('data-id');
       row.addEventListener('click', function (e) {
@@ -391,6 +455,18 @@
         else if (action === 'delete') { e.preventDefault(); e.stopPropagation(); deleteResource(id); }
       });
     });
+  }
+  
+  // Helper function to get resource type labels
+  function getResourceTypeLabel(type) {
+    var labels = {
+      'books': '📚 Books',
+      'slides': '📊 Lecture Slides',
+      'student-notes': '👨‍🎓 Student Notes',
+      'lab-reports': '🧪 Lab Reports',
+      'other': '📎 Other Resources'
+    };
+    return labels[type] || type;
   }
 
   async function openEditResource(id) {
