@@ -1485,6 +1485,163 @@ body {
   font-style: italic;
 }
 
+/* Expandable Resource Section Styles */
+.resource-section-header {
+  background: rgba(40, 30, 90, 0.9);
+  border: 1px solid rgba(0, 212, 255, 0.3);
+  border-radius: 8px 8px 0 0;
+  padding: 15px 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-bottom: 0;
+  position: relative;
+}
+
+.resource-section-header::after {
+  content: '';
+  position: absolute;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 5px solid rgba(0, 212, 255, 0.5);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.resource-section-header:hover::after {
+  opacity: 1;
+}
+
+.resource-section-header:hover {
+  background: rgba(0, 212, 255, 0.1);
+  border-color: rgba(0, 212, 255, 0.5);
+}
+
+.resource-section-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #fff;
+  font-family: 'Source Code Pro', monospace;
+  font-weight: 600;
+}
+
+.expand-icon {
+  color: #00d4ff;
+  font-size: 16px;
+  font-weight: bold;
+  transition: all 0.3s ease;
+  min-width: 20px;
+  text-align: center;
+  display: inline-block;
+}
+
+.resource-section-header:hover .expand-icon {
+  transform: scale(1.1);
+  color: #00ffff;
+}
+
+.resource-type-label {
+  font-size: 16px;
+  color: #00d4ff;
+}
+
+.resource-count {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 500;
+  margin-left: auto;
+}
+
+.resource-section-content {
+  background: rgba(25, 15, 50, 0.8);
+  border: 1px solid rgba(0, 212, 255, 0.3);
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  padding: 20px;
+  max-height: 1000px;
+  overflow: hidden;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.resource-section-content.collapsed {
+  max-height: 0;
+  padding: 0 20px;
+  border: none;
+  opacity: 0;
+}
+
+.resource-section-content.collapsed .note-item {
+  display: none;
+}
+
+/* Smooth entrance animation for expanded content */
+.resource-section-content:not(.collapsed) {
+  animation: slideDown 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Loading state for resource sections */
+.resource-section-header.loading {
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+.resource-section-header.loading .expand-icon {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Focus states for accessibility */
+.resource-section-header:focus {
+  outline: 2px solid #00d4ff;
+  outline-offset: 2px;
+}
+
+.resource-section-header:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Enhanced note item styles for expandable sections */
+.resource-section-content .note-item {
+  background: rgba(40, 30, 90, 0.8);
+  border: 1px solid rgba(0, 212, 255, 0.3);
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 15px;
+  transition: all 0.3s ease;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.resource-section-content .note-item:hover {
+  border-color: rgba(0, 212, 255, 0.6);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(0, 212, 255, 0.2);
+}
+
+.resource-section-content .note-item:last-child {
+  margin-bottom: 0;
+}
+
 /* Responsive design for routines modal */
 @media (max-width: 768px) {
   .routines-modal {
@@ -1527,6 +1684,32 @@ body {
   .section-filter {
     padding: 5px 10px;
     font-size: 11px;
+  }
+  
+  /* Mobile responsive styles for expandable sections */
+  .resource-section-header {
+    padding: 12px 15px;
+  }
+  
+  .resource-section-title {
+    gap: 8px;
+  }
+  
+  .expand-icon {
+    font-size: 14px;
+    min-width: 16px;
+  }
+  
+  .resource-type-label {
+    font-size: 14px;
+  }
+  
+  .resource-count {
+    font-size: 12px;
+  }
+  
+  .resource-section-content {
+    padding: 15px;
   }
 }
 
