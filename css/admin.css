@@ -286,6 +286,17 @@ body {
   justify-content: center;
   align-items: center;
   z-index: 1000;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.modal-overlay.show {
+  opacity: 1;
+}
+
+.modal-overlay .modal-card {
+  cursor: default;
 }
 
 .modal-card {
@@ -297,6 +308,12 @@ body {
   max-height: 90vh;
   overflow-y: auto;
   border: 1px solid rgba(250, 21, 136, 0.3);
+  transform: scale(0.9);
+  transition: transform 0.2s ease;
+}
+
+.modal-overlay.show .modal-card {
+  transform: scale(1);
 }
 
 .modal-header {
