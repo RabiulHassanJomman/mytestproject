@@ -3,10 +3,21 @@
   var firebase = window.firebase;
   var db = window.db;
 
-  // Basic guards for Firebase
   function ensureDb() {
     if (!db) {
-      throw new Error('Firestore not initialized. Ensure firebase-config.js ran and window.db is set.');
+      if (window.firebase && window.__firebaseConfig) {
+        try {
+          if (!window.firebase.apps || window.firebase.apps.length === 0) {
+            window.firebase.initializeApp(window.__firebaseConfig);
+          }
+          db = window.firebase.firestore();
+          try { db.enablePersistence({ synchronizeTabs: true }); } catch (_) {}
+        } catch (e) {
+          throw new Error('Firestore not initialized. Ensure firebase-config.js ran and window.db is set.');
+        }
+      } else {
+        throw new Error('Firestore not initialized. Ensure firebase-config.js ran and window.db is set.');
+      }
     }
     return db;
   }
@@ -49,7 +60,6 @@
   }
 
   function normalizeDateValue(dateStr) {
-    // Store as YYYY-MM-DD string for consistent ordering and compatibility with main app
     if (!dateStr) return '';
     try {
       var d = new Date(dateStr);
@@ -62,12 +72,8 @@
 
   // Auth state
   var STORAGE_KEY = 'cuet_cse24_admin_logged_in';
-  function isLoggedIn() {
-    return localStorage.getItem(STORAGE_KEY) === '1';
-  }
-  function setLoggedIn(val) {
-    if (val) localStorage.setItem(STORAGE_KEY, '1'); else localStorage.removeItem(STORAGE_KEY);
-  }
+  function isLoggedIn() { return localStorage.getItem(STORAGE_KEY) === '1'; }
+  function setLoggedIn(val) { if (val) localStorage.setItem(STORAGE_KEY, '1'); else localStorage.removeItem(STORAGE_KEY); }
 
   // DOM elements (lazy via getters)
   function getEls() {
@@ -111,6 +117,7 @@
       noteForm: qs('#noteForm'),
       noteCourseSelect: qs('#noteCourse'),
       noteTypeSelect: qs('#noteType'),
+      noteSectionSelect: qs('#noteSection'),
       closeNoteModalBtn: qs('#closeNoteModal'),
       cancelNoteBtn: qs('#cancelNote'),
 
@@ -148,6 +155,17 @@
   function openModal(el) { if (!el) return; el.style.display = 'flex'; setTimeout(function(){ el.classList.add('show'); }, 10); }
   function closeModal(el) { if (!el) return; el.classList.remove('show'); setTimeout(function(){ el.style.display = 'none'; }, 200); }
 
+  // Escape helpers
+  function escapeHtml(str) {
+    return String(str == null ? '' : str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+  function escapeAttr(str) { return escapeHtml(str).replace(/"/g, '&quot;'); }
+
   // Renderers
   async function refreshAll() {
     await Promise.all([
@@ -167,45 +185,36 @@
     listEl.innerHTML = '';
     var snap = await d.collection('events').orderBy('date', 'asc').get();
     cache.eventsById = {};
-    if (snap.empty) {
-      listEl.innerHTML = '<div class="empty-hint">No events yet.</div>';
-      return;
-    }
+    if (snap.empty) { listEl.innerHTML = '<div class="empty-hint">No events yet.</div>'; return; }
     var html = '';
     snap.forEach(function (doc) {
       var ev = doc.data();
       cache.eventsById[doc.id] = ev;
       var dateStr = ev.date ? (ev.date.seconds ? new Date(ev.date.seconds * 1000).toISOString().substring(0,10) : String(ev.date)) : '';
       var urgent = ev.urgent ? '🚨 Urgent' : '📋 Normal';
-      html += `
-        <div class="notice-admin-item" data-id="${doc.id}">
-          <div class="notice-admin-header">
-            <div class="notice-admin-info">
-              <h3>${escapeHtml(ev.title || 'Untitled')}</h3>
-              <p>📅 ${dateStr || '-'} | ⏰ ${ev.time || '-'} | ${urgent}</p>
-            </div>
-            <div class="notice-admin-actions">
-              <button data-action="edit">Edit</button>
-              <button class="delete-btn" data-action="delete">Delete</button>
-            </div>
-          </div>
-          <div class="notice-admin-content">${escapeHtml(ev.description || '')}${ev.details ? ('<br><small>' + escapeHtml(ev.details) + '</small>') : ''}</div>
-        </div>`;
+      html += (
+        '        <div class="notice-admin-item" data-id="' + doc.id + '">\n' +
+        '          <div class="notice-admin-header">\n' +
+        '            <div class="notice-admin-info">\n' +
+        '              <h3>' + escapeHtml(ev.title || 'Untitled') + '</h3>\n' +
+        '              <p>📅 ' + (dateStr || '-') + ' | ⏰ ' + (ev.time || '-') + ' | ' + urgent + '</p>\n' +
+        '            </div>\n' +
+        '            <div class="notice-admin-actions">\n' +
+        '              <button data-action="edit">Edit</button>\n' +
+        '              <button class="delete-btn" data-action="delete">Delete</button>\n' +
+        '            </div>\n' +
+        '          </div>\n' +
+        '          <div class="notice-admin-content">' + escapeHtml(ev.description || '') + (ev.details ? ('<br><small>' + escapeHtml(ev.details) + '</small>') : '') + '</div>\n' +
+        '        </div>'
+      );
     });
     listEl.innerHTML = html;
-
-    // Bind actions
     qsa('#eventsList .notice-admin-item').forEach(function (row) {
       var id = row.getAttribute('data-id');
       row.addEventListener('click', function (e) {
         var action = (e.target && e.target.getAttribute('data-action')) || '';
-        if (action === 'edit') {
-          e.preventDefault(); e.stopPropagation();
-          openEditEvent(id);
-        } else if (action === 'delete') {
-          e.preventDefault(); e.stopPropagation();
-          deleteEvent(id);
-        }
+        if (action === 'edit') { e.preventDefault(); e.stopPropagation(); openEditEvent(id); }
+        else if (action === 'delete') { e.preventDefault(); e.stopPropagation(); deleteEvent(id); }
       });
     });
   }
@@ -217,27 +226,25 @@
     listEl.innerHTML = '';
     var snap = await d.collection('courses').orderBy('createdAt', 'asc').get();
     cache.coursesById = {};
-    if (snap.empty) {
-      listEl.innerHTML = '<div class="empty-hint">No courses yet.</div>';
-      return;
-    }
+    if (snap.empty) { listEl.innerHTML = '<div class="empty-hint">No courses yet.</div>'; return; }
     var html = '';
     snap.forEach(function (doc) {
       var c = doc.data();
       cache.coursesById[doc.id] = c;
-      html += `
-        <div class="extra-class-admin-item" data-id="${doc.id}">
-          <div class="extra-class-admin-header">
-            <div class="extra-class-admin-info">
-              <h3>${escapeHtml(c.title || 'Untitled Course')}</h3>
-              <p>${escapeHtml(c.code || '')}${c.instructor ? (' | 👨‍🏫 ' + escapeHtml(c.instructor)) : ''}</p>
-            </div>
-            <div class="notice-admin-actions">
-              <button data-action="edit">Edit</button>
-              <button class="delete-btn" data-action="delete">Delete</button>
-            </div>
-          </div>
-        </div>`;
+      html += (
+        '        <div class="extra-class-admin-item" data-id="' + doc.id + '">\n' +
+        '          <div class="extra-class-admin-header">\n' +
+        '            <div class="extra-class-admin-info">\n' +
+        '              <h3>' + escapeHtml(c.title || 'Untitled Course') + '</h3>\n' +
+        '              <p>' + escapeHtml(c.code || '') + (c.instructor ? (' | 👨‍🏫 ' + escapeHtml(c.instructor)) : '') + '</p>\n' +
+        '            </div>\n' +
+        '            <div class="notice-admin-actions">\n' +
+        '              <button data-action="edit">Edit</button>\n' +
+        '              <button class="delete-btn" data-action="delete">Delete</button>\n' +
+        '            </div>\n' +
+        '          </div>\n' +
+        '        </div>'
+      );
     });
     listEl.innerHTML = html;
     qsa('#coursesList .extra-class-admin-item').forEach(function (row) {
@@ -257,29 +264,27 @@
     listEl.innerHTML = '';
     var snap = await d.collection('notices').orderBy('createdAt', 'desc').get();
     cache.noticesById = {};
-    if (snap.empty) {
-      listEl.innerHTML = '<div class="empty-hint">No notices yet.</div>';
-      return;
-    }
+    if (snap.empty) { listEl.innerHTML = '<div class="empty-hint">No notices yet.</div>'; return; }
     var html = '';
     snap.forEach(function (doc) {
       var n = doc.data();
       cache.noticesById[doc.id] = n;
       var dateStr = n.createdAt ? (n.createdAt.seconds ? new Date(n.createdAt.seconds * 1000).toLocaleString() : String(n.createdAt)) : '';
-      html += `
-        <div class="notice-admin-item" data-id="${doc.id}">
-          <div class="notice-admin-header">
-            <div class="notice-admin-info">
-              <h3>${escapeHtml(n.title || 'Untitled Notice')}</h3>
-              <p>🏷️ ${escapeHtml(n.category || 'general')}${dateStr ? (' | 📅 ' + escapeHtml(dateStr)) : ''}</p>
-            </div>
-            <div class="notice-admin-actions">
-              <button data-action="edit">Edit</button>
-              <button class="delete-btn" data-action="delete">Delete</button>
-            </div>
-          </div>
-          <div class="notice-admin-content">${escapeHtml(n.content || '')}${renderNoticeAttachmentsInline(n.attachments)}</div>
-        </div>`;
+      html += (
+        '        <div class="notice-admin-item" data-id="' + doc.id + '">\n' +
+        '          <div class="notice-admin-header">\n' +
+        '            <div class="notice-admin-info">\n' +
+        '              <h3>' + escapeHtml(n.title || 'Untitled Notice') + '</h3>\n' +
+        '              <p>🏷️ ' + escapeHtml(n.category || 'general') + (dateStr ? (' | 📅 ' + escapeHtml(dateStr)) : '') + '</p>\n' +
+        '            </div>\n' +
+        '            <div class="notice-admin-actions">\n' +
+        '              <button data-action="edit">Edit</button>\n' +
+        '              <button class="delete-btn" data-action="delete">Delete</button>\n' +
+        '            </div>\n' +
+        '          </div>\n' +
+        '          <div class="notice-admin-content">' + escapeHtml(n.content || '') + renderNoticeAttachmentsInline(n.attachments) + '</div>\n' +
+        '        </div>'
+      );
     });
     listEl.innerHTML = html;
     qsa('#noticesList .notice-admin-item').forEach(function (row) {
@@ -311,10 +316,7 @@
     listEl.innerHTML = '';
     var snap = await d.collection('resources').orderBy('createdAt', 'desc').get();
     cache.resourcesById = {};
-    if (snap.empty) {
-      listEl.innerHTML = '<div class="empty-hint">No resources yet.</div>';
-      return;
-    }
+    if (snap.empty) { listEl.innerHTML = '<div class="empty-hint">No resources yet.</div>'; return; }
     var html = '';
     snap.forEach(function (doc) {
       var r = doc.data();
@@ -322,20 +324,21 @@
       var course = cache.coursesById[r.courseId];
       var courseLabel = course ? (course.title || course.code || r.courseId) : (r.courseId || 'Course');
       var typeLabel = r.type || 'resource';
-      html += `
-        <div class="notice-admin-item" data-id="${doc.id}">
-          <div class="notice-admin-header">
-            <div class="notice-admin-info">
-              <h3>${escapeHtml(r.title || 'Untitled')}</h3>
-              <p>📚 ${escapeHtml(courseLabel)} | 🏷️ ${escapeHtml(typeLabel)}</p>
-            </div>
-            <div class="notice-admin-actions">
-              <button data-action="edit">Edit</button>
-              <button class="delete-btn" data-action="delete">Delete</button>
-            </div>
-          </div>
-          <div class="notice-admin-content">${escapeHtml(r.description || '')}${r.url ? ('<br><a href="' + escapeAttr(r.url) + '" target="_blank" rel="noopener noreferrer">Open link</a>') : ''}</div>
-        </div>`;
+      html += (
+        '        <div class="notice-admin-item" data-id="' + doc.id + '">\n' +
+        '          <div class="notice-admin-header">\n' +
+        '            <div class="notice-admin-info">\n' +
+        '              <h3>' + escapeHtml(r.title || 'Untitled') + '</h3>\n' +
+        '              <p>📚 ' + escapeHtml(courseLabel) + ' | 🏷️ ' + escapeHtml(typeLabel) + (r.section && r.section !== 'all' ? (' | Section ' + escapeHtml(r.section)) : '') + '</p>\n' +
+        '            </div>\n' +
+        '            <div class="notice-admin-actions">\n' +
+        '              <button data-action="edit">Edit</button>\n' +
+        '              <button class="delete-btn" data-action="delete">Delete</button>\n' +
+        '            </div>\n' +
+        '          </div>\n' +
+        '          <div class="notice-admin-content">' + escapeHtml(r.description || '') + (r.url ? ('<br><a href="' + escapeAttr(r.url) + '" target="_blank" rel="noopener noreferrer">Open link</a>') : '') + '</div>\n' +
+        '        </div>'
+      );
     });
     listEl.innerHTML = html;
     qsa('#resourcesList .notice-admin-item').forEach(function (row) {
@@ -354,20 +357,14 @@
     editing.resourceId = id;
     qs('#noteModalTitle').textContent = 'Edit Resource';
     var f = getEls();
-    if (f.noteForm) {
-      f.noteForm.reset();
-    }
-    // Ensure course options are populated before set value
+    if (f.noteForm) { f.noteForm.reset(); }
     try { await populateCourseOptions(); } catch (_) {}
-    if (getEls().noteCourseSelect) {
-      getEls().noteCourseSelect.value = r.courseId || '';
-    }
-    if (getEls().noteTypeSelect) {
-      getEls().noteTypeSelect.value = r.type || 'books';
-    }
+    if (getEls().noteCourseSelect) { getEls().noteCourseSelect.value = r.courseId || ''; }
+    if (getEls().noteTypeSelect) { getEls().noteTypeSelect.value = r.type || 'books'; }
+    if (getEls().noteSectionSelect) { getEls().noteSectionSelect.value = (r.section === 'A' || r.section === 'B') ? r.section : 'all'; }
     qs('#noteTitle').value = r.title || '';
     qs('#noteDescription').value = r.description || '';
-    qs('#noteLink').value = r.url || '';
+    qs('#noteLink').value = r.url || r.linkUrl || '';
     openModal(getEls().noteModal);
   }
 
@@ -375,74 +372,20 @@
     var d = ensureDb();
     var r = cache.resourcesById[id];
     if (!r) return;
-    var ok = await showThemedConfirm('Delete resource "' + (r.title || 'Untitled') + '"?', { type: 'warning', okText: 'Delete' });
+    var ok = await window.showThemedConfirm('Delete resource "' + (r.title || 'Untitled') + '"?', { type: 'warning', okText: 'Delete' });
     if (!ok) return;
     showLoading('Deleting resource...');
     try {
       await d.collection('resources').doc(id).delete();
+      try { await d.collection('courses').doc(r.courseId).collection(r.type).doc(id).delete(); } catch (_) {}
       await loadAndRenderResources();
     } catch (err) {
       console.error(err);
-      await showThemedAlert('Failed to delete resource: ' + err.message, { type: 'error' });
+      await window.showThemedAlert('Failed to delete resource: ' + err.message, { type: 'error' });
     } finally { hideLoading(); }
   }
 
-  async function loadAndRenderExtraClasses() {
-    var d = ensureDb();
-    var listEl = getEls().extraClassesList;
-    if (!listEl) return;
-    listEl.innerHTML = '';
-    var snap = await d.collection('extraClasses').orderBy('createdAt', 'desc').get();
-    cache.extraClassesById = {};
-    if (snap.empty) {
-      listEl.innerHTML = '<div class="empty-hint">No extra classes yet.</div>';
-      return;
-    }
-    var html = '';
-    snap.forEach(function (doc) {
-      var ex = doc.data();
-      cache.extraClassesById[doc.id] = ex;
-      var dateStr = ex.date ? (ex.date.seconds ? new Date(ex.date.seconds * 1000).toISOString().substring(0,10) : String(ex.date)) : '';
-      html += `
-        <div class="extra-class-admin-item" data-id="${doc.id}">
-          <div class="extra-class-admin-header">
-            <div class="extra-class-admin-info">
-              <h3>${escapeHtml(ex.title || 'Untitled Extra Class')}</h3>
-              <p>📅 ${dateStr || '-'} | 📆 ${ex.day || '-'} | ⏰ ${ex.time || '-'}${ex.subsection ? (' | Sub: ' + escapeHtml(ex.subsection)) : ''}</p>
-            </div>
-            <div class="notice-admin-actions">
-              <button data-action="edit">Edit</button>
-              <button class="delete-btn" data-action="delete">Delete</button>
-            </div>
-          </div>
-          <div class="notice-admin-content">${ex.description ? escapeHtml(ex.description) : ''}</div>
-        </div>`;
-    });
-    listEl.innerHTML = html;
-    qsa('#extraClassesList .extra-class-admin-item').forEach(function (row) {
-      var id = row.getAttribute('data-id');
-      row.addEventListener('click', function (e) {
-        var action = (e.target && e.target.getAttribute('data-action')) || '';
-        if (action === 'edit') { e.preventDefault(); e.stopPropagation(); openEditExtraClass(id); }
-        else if (action === 'delete') { e.preventDefault(); e.stopPropagation(); deleteExtraClass(id); }
-      });
-    });
-  }
-
-  // Escape helpers
-  function escapeHtml(str) {
-    return String(str == null ? '' : str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-  }
-  function escapeAttr(str) {
-    return escapeHtml(str).replace(/"/g, '&quot;');
-  }
-
-  // Event CRUD
+  // Events CRUD
   function openCreateEvent(preset) {
     editing.eventId = null;
     var f = getEls();
@@ -503,7 +446,6 @@
       updatedAt: firebase && firebase.firestore ? firebase.firestore.FieldValue.serverTimestamp() : Date.now(),
     };
     if (!editing.eventId) payload.createdAt = payload.updatedAt;
-
     showLoading(editing.eventId ? 'Saving event...' : 'Creating event...');
     try {
       if (editing.eventId) {
@@ -511,19 +453,19 @@
       } else {
         await d.collection('events').add(payload);
       }
-      await showThemedAlert('Event saved successfully', { type: 'success' });
+      await window.showThemedAlert('Event saved successfully', { type: 'success' });
       await loadAndRenderEvents();
       closeModal(getEls().eventModal);
     } catch (err) {
       console.error(err);
-      await showThemedAlert('Failed to save event: ' + err.message, { type: 'error' });
+      await window.showThemedAlert('Failed to save event: ' + err.message, { type: 'error' });
     } finally { hideLoading(); }
   }
   async function deleteEvent(id) {
     var d = ensureDb();
     var ev = cache.eventsById[id];
     if (!ev) return;
-    var ok = await showThemedConfirm('Delete event "' + (ev.title || 'Untitled') + '"? This cannot be undone.', { type: 'warning', okText: 'Delete' });
+    var ok = await window.showThemedConfirm('Delete event "' + (ev.title || 'Untitled') + '"?', { type: 'warning', okText: 'Delete' });
     if (!ok) return;
     showLoading('Deleting event...');
     try {
@@ -531,11 +473,11 @@
       await loadAndRenderEvents();
     } catch (err) {
       console.error(err);
-      await showThemedAlert('Failed to delete event: ' + err.message, { type: 'error' });
+      await window.showThemedAlert('Failed to delete event: ' + err.message, { type: 'error' });
     } finally { hideLoading(); }
   }
 
-  // Course CRUD
+  // Courses CRUD
   function openCreateCourse() {
     editing.courseId = null;
     var f = getEls();
@@ -575,19 +517,19 @@
       } else {
         await d.collection('courses').add(payload);
       }
-      await showThemedAlert('Course saved successfully', { type: 'success' });
+      await window.showThemedAlert('Course saved successfully', { type: 'success' });
       await Promise.all([loadAndRenderCourses(), populateCourseOptions()]);
       closeModal(getEls().courseModal);
     } catch (err) {
       console.error(err);
-      await showThemedAlert('Failed to save course: ' + err.message, { type: 'error' });
+      await window.showThemedAlert('Failed to save course: ' + err.message, { type: 'error' });
     } finally { hideLoading(); }
   }
   async function deleteCourse(id) {
     var d = ensureDb();
     var c = cache.coursesById[id];
     if (!c) return;
-    var ok = await showThemedConfirm('Delete course "' + (c.title || 'Untitled') + '"? Resources linked to this course will remain in top-level resources.', { type: 'warning', okText: 'Delete' });
+    var ok = await window.showThemedConfirm('Delete course "' + (c.title || 'Untitled') + '"? Resources linked to this course will remain in top-level resources.', { type: 'warning', okText: 'Delete' });
     if (!ok) return;
     showLoading('Deleting course...');
     try {
@@ -595,7 +537,7 @@
       await Promise.all([loadAndRenderCourses(), populateCourseOptions()]);
     } catch (err) {
       console.error(err);
-      await showThemedAlert('Failed to delete course: ' + err.message, { type: 'error' });
+      await window.showThemedAlert('Failed to delete course: ' + err.message, { type: 'error' });
     } finally { hideLoading(); }
   }
 
@@ -606,6 +548,7 @@
     if (!f.noteForm) return;
     f.noteForm.reset();
     if (presetType) f.noteTypeSelect.value = presetType;
+    if (f.noteSectionSelect) f.noteSectionSelect.value = 'all';
     qs('#noteModalTitle').textContent = 'Add New Resource';
     openModal(f.noteModal);
   }
@@ -618,6 +561,8 @@
     var title = qs('#noteTitle').value.trim();
     var description = qs('#noteDescription').value.trim();
     var url = qs('#noteLink').value.trim();
+    var sectionSel = getEls().noteSectionSelect;
+    var section = sectionSel && sectionSel.value ? sectionSel.value : 'all';
     var baseTimestamps = {
       updatedAt: firebase && firebase.firestore ? firebase.firestore.FieldValue.serverTimestamp() : Date.now(),
     };
@@ -627,23 +572,32 @@
       title: title,
       description: description || undefined,
       url: url,
-      section: 'all',
-      // createdAt only when creating new
+      linkUrl: url,
+      section: section,
     };
+    var oldResource = editing.resourceId ? cache.resourcesById[editing.resourceId] : null;
     showLoading('Saving resource...');
     try {
       if (editing.resourceId) {
-        await d.collection('resources').doc(editing.resourceId).set(Object.assign({}, payload, baseTimestamps), { merge: true });
+        var docId = editing.resourceId;
+        await d.collection('resources').doc(docId).set(Object.assign({}, payload, baseTimestamps), { merge: true });
+        await d.collection('courses').doc(courseId).collection(type).doc(docId).set(Object.assign({}, payload, baseTimestamps), { merge: true });
+        if (oldResource && (oldResource.courseId !== courseId || oldResource.type !== type)) {
+          try { await d.collection('courses').doc(oldResource.courseId).collection(oldResource.type).doc(docId).delete(); } catch (_) {}
+        }
       } else {
-        payload.createdAt = baseTimestamps.updatedAt;
-        await d.collection('resources').add(Object.assign({}, payload));
+        var createdAt = baseTimestamps.updatedAt;
+        var newRef = d.collection('resources').doc();
+        var newId = newRef.id;
+        await newRef.set(Object.assign({}, payload, { createdAt: createdAt }));
+        await d.collection('courses').doc(courseId).collection(type).doc(newId).set(Object.assign({}, payload, { createdAt: createdAt }));
       }
-      await showThemedAlert('Resource saved successfully', { type: 'success' });
+      await window.showThemedAlert('Resource saved successfully', { type: 'success' });
       await loadAndRenderResources();
       closeModal(f.noteModal);
     } catch (err) {
       console.error(err);
-      await showThemedAlert('Failed to save resource: ' + err.message, { type: 'error' });
+      await window.showThemedAlert('Failed to save resource: ' + err.message, { type: 'error' });
     } finally { hideLoading(); }
   }
   async function populateCourseOptions() {
@@ -739,19 +693,19 @@
       } else {
         await d.collection('notices').add(payload);
       }
-      await showThemedAlert('Notice saved successfully', { type: 'success' });
+      await window.showThemedAlert('Notice saved successfully', { type: 'success' });
       await loadAndRenderNotices();
       closeModal(getEls().noticeModal);
     } catch (err) {
       console.error(err);
-      await showThemedAlert('Failed to save notice: ' + err.message, { type: 'error' });
+      await window.showThemedAlert('Failed to save notice: ' + err.message, { type: 'error' });
     } finally { hideLoading(); }
   }
   async function deleteNotice(id) {
     var d = ensureDb();
     var n = cache.noticesById[id];
     if (!n) return;
-    var ok = await showThemedConfirm('Delete notice "' + (n.title || 'Untitled') + '"?', { type: 'warning', okText: 'Delete' });
+    var ok = await window.showThemedConfirm('Delete notice "' + (n.title || 'Untitled') + '"?', { type: 'warning', okText: 'Delete' });
     if (!ok) return;
     showLoading('Deleting notice...');
     try {
@@ -759,7 +713,7 @@
       await loadAndRenderNotices();
     } catch (err) {
       console.error(err);
-      await showThemedAlert('Failed to delete notice: ' + err.message, { type: 'error' });
+      await window.showThemedAlert('Failed to delete notice: ' + err.message, { type: 'error' });
     } finally { hideLoading(); }
   }
 
@@ -811,19 +765,19 @@
       } else {
         await d.collection('extraClasses').add(payload);
       }
-      await showThemedAlert('Extra class saved successfully', { type: 'success' });
+      await window.showThemedAlert('Extra class saved successfully', { type: 'success' });
       await loadAndRenderExtraClasses();
       closeModal(getEls().extraClassModal);
     } catch (err) {
       console.error(err);
-      await showThemedAlert('Failed to save extra class: ' + err.message, { type: 'error' });
+      await window.showThemedAlert('Failed to save extra class: ' + err.message, { type: 'error' });
     } finally { hideLoading(); }
   }
   async function deleteExtraClass(id) {
     var d = ensureDb();
     var ex = cache.extraClassesById[id];
     if (!ex) return;
-    var ok = await showThemedConfirm('Delete extra class "' + (ex.title || 'Untitled') + '"?', { type: 'warning', okText: 'Delete' });
+    var ok = await window.showThemedConfirm('Delete extra class "' + (ex.title || 'Untitled') + '"?', { type: 'warning', okText: 'Delete' });
     if (!ok) return;
     showLoading('Deleting extra class...');
     try {
@@ -831,8 +785,48 @@
       await loadAndRenderExtraClasses();
     } catch (err) {
       console.error(err);
-      await showThemedAlert('Failed to delete extra class: ' + err.message, { type: 'error' });
+      await window.showThemedAlert('Failed to delete extra class: ' + err.message, { type: 'error' });
     } finally { hideLoading(); }
+  }
+
+  async function loadAndRenderExtraClasses() {
+    var d = ensureDb();
+    var listEl = getEls().extraClassesList;
+    if (!listEl) return;
+    listEl.innerHTML = '';
+    var snap = await d.collection('extraClasses').orderBy('createdAt', 'desc').get();
+    cache.extraClassesById = {};
+    if (snap.empty) { listEl.innerHTML = '<div class="empty-hint">No extra classes yet.</div>'; return; }
+    var html = '';
+    snap.forEach(function (doc) {
+      var ex = doc.data();
+      cache.extraClassesById[doc.id] = ex;
+      var dateStr = ex.date ? (ex.date.seconds ? new Date(ex.date.seconds * 1000).toISOString().substring(0,10) : String(ex.date)) : '';
+      html += (
+        '        <div class="extra-class-admin-item" data-id="' + doc.id + '">\n' +
+        '          <div class="extra-class-admin-header">\n' +
+        '            <div class="extra-class-admin-info">\n' +
+        '              <h3>' + escapeHtml(ex.title || 'Untitled Extra Class') + '</h3>\n' +
+        '              <p>📅 ' + (dateStr || '-') + ' | 📆 ' + (ex.day || '-') + ' | ⏰ ' + (ex.time || '-') + (ex.subsection ? (' | Sub: ' + escapeHtml(ex.subsection)) : '') + '</p>\n' +
+        '            </div>\n' +
+        '            <div class="notice-admin-actions">\n' +
+        '              <button data-action="edit">Edit</button>\n' +
+        '              <button class="delete-btn" data-action="delete">Delete</button>\n' +
+        '            </div>\n' +
+        '          </div>\n' +
+        '          <div class="notice-admin-content">' + (ex.description ? escapeHtml(ex.description) : '') + '</div>\n' +
+        '        </div>'
+      );
+    });
+    listEl.innerHTML = html;
+    qsa('#extraClassesList .extra-class-admin-item').forEach(function (row) {
+      var id = row.getAttribute('data-id');
+      row.addEventListener('click', function (e) {
+        var action = (e.target && e.target.getAttribute('data-action')) || '';
+        if (action === 'edit') { e.preventDefault(); e.stopPropagation(); openEditExtraClass(id); }
+        else if (action === 'delete') { e.preventDefault(); e.stopPropagation(); deleteExtraClass(id); }
+      });
+    });
   }
 
   // Auth UI
@@ -856,7 +850,7 @@
       setLoggedIn(true);
       if (els.loginError) els.loginError.textContent = '';
       showDashboard();
-      showThemedAlert('Welcome, ' + username + '!', { type: 'success' });
+      window.showThemedAlert('Welcome, ' + username + '!', { type: 'success' });
     } else {
       if (els.loginError) els.loginError.textContent = 'Invalid credentials';
     }
@@ -864,7 +858,7 @@
   function handleLogout() {
     setLoggedIn(false);
     showLogin();
-    showThemedAlert('Logged out', { type: 'success' });
+    window.showThemedAlert('Logged out', { type: 'success' });
   }
 
   // Wiring
@@ -921,4 +915,3 @@
     init();
   }
 })();
-
