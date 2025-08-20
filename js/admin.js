@@ -115,9 +115,9 @@
 
       noteModal: qs('#noteModal'),
       noteForm: qs('#noteForm'),
-      noteCourseSelect: qs('#noteCourse'),
-      noteTypeSelect: qs('#noteType'),
-      noteSectionSelect: qs('#noteSection'),
+      noteCourse: qs('#noteCourse'),
+      noteType: qs('#noteType'),
+      noteSection: qs('#noteSection'),
       closeNoteModalBtn: qs('#closeNoteModal'),
       cancelNoteBtn: qs('#cancelNote'),
 
@@ -297,6 +297,11 @@
         else if (action === 'delete') { e.preventDefault(); e.stopPropagation(); deleteCourse(id); }
       });
     });
+    
+    // Re-render expandable resources when courses are updated
+    if (cache.resourcesById && Object.keys(cache.resourcesById).length > 0) {
+      await renderExpandableResources();
+    }
   }
 
   async function loadAndRenderNotices() {
@@ -391,6 +396,147 @@
         else if (action === 'delete') { e.preventDefault(); e.stopPropagation(); deleteResource(id); }
       });
     });
+    
+    // Also render the expandable resource list
+    await renderExpandableResources();
+  }
+
+  // Render expandable resource list for better user experience
+  async function renderExpandableResources() {
+    try {
+      var expandableListEl = qs('#expandableResourcesList');
+      if (!expandableListEl) {
+        console.warn('Expandable resources list element not found');
+        return;
+      }
+      
+      // Check if resources are loaded
+      if (!cache.resourcesById || Object.keys(cache.resourcesById).length === 0) {
+        expandableListEl.innerHTML = '<div class="empty-hint">No resources available yet.</div>';
+        return;
+      }
+      
+      // Group resources by type
+      var resourcesByType = {};
+      var resourceTypes = ['books', 'slides', 'student-notes', 'lab-reports'];
+      
+      // Initialize empty arrays for each type
+      resourceTypes.forEach(function(type) {
+        resourcesByType[type] = [];
+      });
+      
+      // Populate resources by type
+      Object.values(cache.resourcesById).forEach(function(resource) {
+        var type = resource.type || 'books';
+        if (resourcesByType[type]) {
+          resourcesByType[type].push(resource);
+        }
+      });
+      
+      var html = '';
+      resourceTypes.forEach(function(type) {
+        var resources = resourcesByType[type];
+        var count = resources.length;
+        var typeLabel = getResourceTypeLabel(type);
+        var typeIcon = getResourceTypeIcon(type);
+        
+        if (count > 0) {
+          html += (
+            '<div class="resource-section-header" data-resource-type="' + type + '">\n' +
+            '  <div class="resource-section-title">\n' +
+            '    <span class="expand-icon">▼</span>\n' +
+            '    <span class="resource-type-label">' + typeIcon + ' ' + typeLabel + '</span>\n' +
+            '    <span class="resource-count">(' + count + ' resource' + (count !== 1 ? 's' : '') + ')</span>\n' +
+            '  </div>\n' +
+            '</div>\n' +
+            '<div class="resource-section-content">\n'
+          );
+          
+          resources.forEach(function(resource) {
+            var course = cache.coursesById[resource.courseId];
+            var courseLabel = course ? (course.title || course.code || resource.courseId) : (resource.courseId || 'Course');
+            var sectionBadge = resource.section && resource.section !== 'all' ? 
+              '<span class="section-badge">Section ' + escapeHtml(resource.section) + '</span>' : '';
+            
+            html += (
+              '  <div class="resource-item">\n' +
+              '    <div class="resource-info">\n' +
+              '      <h4>' + escapeHtml(resource.title || 'Untitled') + '</h4>\n' +
+              '      <p>📚 ' + escapeHtml(courseLabel) + '</p>\n' +
+              '      ' + (resource.description ? '<p>' + escapeHtml(resource.description) + '</p>' : '') + '\n' +
+              '      ' + sectionBadge + '\n' +
+              '    </div>\n' +
+              '    <a href="' + escapeAttr(resource.url || resource.linkUrl || '#') + '" target="_blank" rel="noopener noreferrer" class="resource-link">📎 View Resource</a>\n' +
+              '  </div>\n'
+            );
+          });
+          
+          html += '</div>\n';
+        }
+      });
+      
+      if (html === '') {
+        html = '<div class="empty-hint">No resources available yet.</div>';
+      }
+      
+      expandableListEl.innerHTML = html;
+      
+      // Add click event listeners for expandable sections
+      qsa('#expandableResourcesList .resource-section-header').forEach(function(header) {
+        header.addEventListener('click', function() {
+          var resourceType = this.dataset.resourceType;
+          var content = this.nextElementSibling;
+          var expandIcon = this.querySelector('.expand-icon');
+          
+          // Add loading state
+          this.classList.add('loading');
+          
+          // Small delay to show loading state
+          setTimeout(function() {
+            if (content.classList.contains('collapsed')) {
+              // Expand
+              content.classList.remove('collapsed');
+              expandIcon.textContent = '▼';
+            } else {
+              // Collapse
+              content.classList.add('collapsed');
+              expandIcon.textContent = '▶';
+            }
+            
+            // Remove loading state
+            header.classList.remove('loading');
+          }, 150);
+        });
+      });
+    } catch (error) {
+      console.error('Error rendering expandable resources:', error);
+      var expandableListEl = qs('#expandableResourcesList');
+      if (expandableListEl) {
+        expandableListEl.innerHTML = '<div class="error-message">Error loading resources</div>';
+      }
+    }
+  }
+
+  // Helper function to get resource type labels
+  function getResourceTypeLabel(type) {
+    var labels = {
+      'books': 'Books',
+      'slides': 'Lecture Slides',
+      'student-notes': 'Student Notes',
+      'lab-reports': 'Lab Reports'
+    };
+    return labels[type] || 'Resources';
+  }
+
+  // Helper function to get resource type icons
+  function getResourceTypeIcon(type) {
+    var icons = {
+      'books': '📚',
+      'slides': '📊',
+      'student-notes': '👨‍🎓',
+      'lab-reports': '🧪'
+    };
+    return icons[type] || '📎';
   }
 
   async function openEditResource(id) {
@@ -401,9 +547,9 @@
     var f = getEls();
     if (f.noteForm) { f.noteForm.reset(); }
     try { await populateCourseOptions(); } catch (_) {}
-    if (getEls().noteCourseSelect) { getEls().noteCourseSelect.value = r.courseId || ''; }
-    if (getEls().noteTypeSelect) { getEls().noteTypeSelect.value = r.type || 'books'; }
-    if (getEls().noteSectionSelect) { getEls().noteSectionSelect.value = (r.section === 'A' || r.section === 'B') ? r.section : 'all'; }
+    if (getEls().noteCourse) { getEls().noteCourse.value = r.courseId || ''; }
+    if (getEls().noteType) { getEls().noteType.value = r.type || 'books'; }
+    if (getEls().noteSection) { getEls().noteSection.value = (r.section === 'A' || r.section === 'B') ? r.section : 'all'; }
     qs('#noteTitle').value = r.title || '';
     qs('#noteDescription').value = r.description || '';
     qs('#noteLink').value = r.url || r.linkUrl || '';
@@ -593,8 +739,8 @@
     var f = getEls();
     if (!f.noteForm) return;
     f.noteForm.reset();
-    if (presetType) f.noteTypeSelect.value = presetType;
-    if (f.noteSectionSelect) f.noteSectionSelect.value = 'all';
+    if (presetType) f.noteType.value = presetType;
+    if (f.noteSection) f.noteSection.value = 'all';
     qs('#noteModalTitle').textContent = 'Add New Resource';
     openModal(f.noteModal);
   }
@@ -602,12 +748,12 @@
     e.preventDefault();
     var d = ensureDb();
     var f = getEls();
-    var courseId = f.noteCourseSelect.value;
-    var type = f.noteTypeSelect.value;
+    var courseId = f.noteCourse.value;
+    var type = f.noteType.value;
     var title = qs('#noteTitle').value.trim();
     var description = qs('#noteDescription').value.trim();
     var url = qs('#noteLink').value.trim();
-    var sectionSel = getEls().noteSectionSelect;
+    var sectionSel = getEls().noteSection;
     var section = sectionSel && sectionSel.value ? sectionSel.value : 'all';
     var baseTimestamps = {
       updatedAt: firebase && firebase.firestore ? firebase.firestore.FieldValue.serverTimestamp() : Date.now(),
@@ -650,7 +796,7 @@
   }
   async function populateCourseOptions() {
     var f = getEls();
-    if (!f.noteCourseSelect) return;
+    if (!f.noteCourse) return;
     var d = ensureDb();
     var snap = await d.collection('courses').orderBy('createdAt', 'asc').get();
     var options = '<option value="">Choose a course...</option>';
@@ -658,7 +804,7 @@
       var c = doc.data();
       options += '<option value="' + escapeAttr(doc.id) + '">' + escapeHtml(c.title || c.code || 'Course') + '</option>';
     });
-    f.noteCourseSelect.innerHTML = options;
+    f.noteCourse.innerHTML = options;
   }
 
   // Notice CRUD
