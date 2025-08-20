@@ -152,8 +152,50 @@
   };
 
   // Modal helpers
-  function openModal(el) { if (!el) return; el.style.display = 'flex'; setTimeout(function(){ el.classList.add('show'); }, 10); }
-  function closeModal(el) { if (!el) return; el.classList.remove('show'); setTimeout(function(){ el.style.display = 'none'; }, 200); }
+  function openModal(el) { 
+    if (!el) return; 
+    el.style.display = 'flex'; 
+    setTimeout(function(){ el.classList.add('show'); }, 10); 
+    setupModalAutoClose(el);
+  }
+  function closeModal(el) { 
+    if (!el) return; 
+    el.classList.remove('show'); 
+    setTimeout(function(){ el.style.display = 'none'; }, 200); 
+  }
+
+  // Auto-close modal functionality
+  function setupModalAutoClose(modalEl) {
+    if (!modalEl) return;
+    
+    // Close on overlay click (outside modal content)
+    modalEl.addEventListener('click', function(e) {
+      if (e.target === modalEl) {
+        closeModal(modalEl);
+      }
+    });
+    
+    // Prevent clicks inside modal content from bubbling to overlay
+    var modalContent = modalEl.querySelector('.modal-card');
+    if (modalContent) {
+      modalContent.addEventListener('click', function(e) {
+        e.stopPropagation();
+      });
+    }
+  }
+  
+  // Global escape key handler for all modals
+  function setupGlobalEscapeHandler() {
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        // Find any open modal and close it
+        var openModals = document.querySelectorAll('.modal-overlay[style*="flex"]');
+        if (openModals.length > 0) {
+          closeModal(openModals[0]);
+        }
+      }
+    });
+  }
 
   // Escape helpers
   function escapeHtml(str) {
@@ -905,6 +947,7 @@
     var els = getEls();
     if (els.loginForm) els.loginForm.addEventListener('submit', handleLoginSubmit);
     wireBaseActions();
+    setupGlobalEscapeHandler();
     populateCourseOptions().catch(function (e) { console.warn(e); });
     if (isLoggedIn()) showDashboard(); else showLogin();
   }
