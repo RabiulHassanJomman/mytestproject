@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/style.css" />
+    <link rel="stylesheet" href="css/alerts.css" />
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="assets/icons/favicon-main.svg"
+    />
+    <link rel="icon" type="image/png" href="assets/icons/favicon.png" />
+    <!-- Preload hero image to improve LCP -->
+    <link rel="preload" as="image" href="assets/images/cover.jpg" fetchpriority="high" />
+    <title>CUET CSE-24</title>
+    <!-- Firebase SDK will be lazy-loaded on demand -->
+  </head>
+  <body>
+    
+    <!-- Dynamic CSE Geometric Background -->
+    <div class="geometric-background">
+      <div class="geometric-shape shape-1"></div>
+      <div class="geometric-shape shape-2"></div>
+      <div class="geometric-shape shape-3"></div>
+      <div class="geometric-shape shape-4"></div>
+      <div class="geometric-shape shape-5"></div>
+      <div class="geometric-shape shape-6"></div>
+      <div class="geometric-shape shape-7"></div>
+      <div class="geometric-shape shape-8"></div>
+      <div class="circuit-lines">
+        <div class="circuit-line line-1"></div>
+        <div class="circuit-line line-2"></div>
+        <div class="circuit-line line-3"></div>
+        <div class="circuit-line line-4"></div>
+      </div>
+      <div class="binary-particles">
+        <span class="particle">1</span>
+        <span class="particle">0</span>
+        <span class="particle">1</span>
+        <span class="particle">0</span>
+        <span class="particle">1</span>
+        <span class="particle">0</span>
+        <span class="particle">1</span>
+        <span class="particle">0</span>
+      </div>
+    </div>
+    <div class="image-container">
+      <img src="assets/images/cover.jpg" alt="cover" id="cover-photo" decoding="async" fetchpriority="high" />
+      <!-- Admin Panel Button - Between Photo and Text -->
+      <div id="admin-panel-container">
+        <a href="admin/admin.html" id="admin-panel-link" title="Admin Panel" target="_blank">
+          <span class="admin-icon">⚙️</span>
+          <span class="admin-text">Admin</span>
+        </a>
+      </div>
+      <div class="text-container">
+        <p id="text"></p>
+        <!-- Events Button -->
+         <div id="buttons-container">
+          <div id="events-button-container">
+            <button id="events-button" onclick="openEventsModal()">
+              📅 Upcoming Events
+            </button>
+          </div>
+          <!-- Routines Button -->
+          <div id="routines-button-container">
+            <button id="routines-button" onclick="openRoutinesModal()">
+              📚 Course Resources
+            </button>
+          </div>
+          <!-- Notice Button -->
+          <div id="notice-button-container">
+            <button id="notice-button" onclick="openNoticeModal()">
+              📢 Notices
+            </button>
+          </div>
+          <!-- Routine Button -->
+          <div id="routine-button-container">
+            <button id="routine-button" onclick="openRoutineModal()">
+              📅 Class Routine
+            </button>
+          </div>
+          <!-- Student Login Button -->
+          <div id="student-button-container">
+            <button id="student-button" type="button">
+              👨‍🎓 Student Login
+            </button>
+          </div>
+         </div>
+        
+        <div class="separator-line"></div>
+        <h2 id="family-text">Our Family</h2>
+      </div>
+    </div>
+
+
+
+    <!-- Search Section -->
+    <div class="search-section">
+      <div class="search-box">
+        <input type="text" id="searchInput" placeholder="🔍 Search members by name, ID, home, college, bio, or blood group..." />
+        
+        <button id="clearSearchBtn" class="clear-btn" style="display: none;">Clear</button>
+      </div>
+      <div class="search-results">
+        <div id="searchResults" class="results-container"></div>
+        <div id="searchStats" class="search-stats"></div>
+      </div>
+    </div>
+
+    <div id="member-container">
+      <div id="members"></div>
+    </div>
+
+    <!-- Modal for bigger card -->
+    <div class="modal-overlay" id="modalOverlay">
+      <div class="modal-card">
+        <button class="modal-close" id="modalClose"></button>
+        <h3 id="modalName"></h3>
+        <p id="modalId"></p>
+        <p id="modalHome"></p>
+        <p id="modalCollege"></p>
+        <p id="modalSchool"></p>
+        <p id="modalBlood"></p>
+        <p id="modalFacebook"></p>
+        <p id="modalBio"></p>
+      </div>
+    </div>
+
+    <!-- Student Auth Modal -->
+    <div class="modal-overlay" id="studentAuthModalOverlay">
+      <div class="modal-card" id="student-auth-card">
+        <div class="student-auth-header">
+          <h2 id="student-auth-title">👨‍🎓 Student Login</h2>
+          <button class="modal-close" id="studentAuthModalClose">&times;</button>
+        </div>
+        <div id="student-auth-views">
+          <!-- View: Google Sign-In only -->
+          <div id="student-auth-google-view" class="student-auth-form">
+            <button id="studentAuthGoogleBtn" class="student-auth-btn" type="button">Sign in with Google (CUET only)</button>
+            <div class="student-auth-hint">Only CUET student emails (u<studentId>@student.cuet.ac.bd) are allowed.</div>
+          </div>
+
+          <!-- View: logged in -->
+          <div id="student-auth-loggedin" style="display:none;">
+            <p id="studentAuthWelcome"></p>
+            <button id="studentAuthLogoutBtn" class="student-auth-btn" type="button">Logout</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Profile Modal -->
+    <div class="modal-overlay" id="profileModalOverlay" style="display: none;">
+      <div class="modal-card" id="profile-card">
+        <div class="profile-header" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+          <h2 id="profile-title">👤 Your Profile</h2>
+          <button class="modal-close" id="profileModalClose">&times;</button>
+        </div>
+          <form id="profileForm" class="student-auth-form" novalidate style="display:flex; flex-direction:column; gap:12px;">
+          <div>
+            <label for="profileName" style="display:block; margin-bottom:6px;">Full Name<span style="color:#ff4d4f"> *</span></label>
+            <input id="profileName" type="text" placeholder="Enter your full name" required />
+          </div>
+          <div>
+            <label for="profileNickname" style="display:block; margin-bottom:6px;">Nickname</label>
+            <input id="profileNickname" type="text" placeholder="Your nickname (optional)" />
+          </div>
+          <div>
+            <label for="profileStudentId" style="display:block; margin-bottom:6px;">Student ID<span style="color:#ff4d4f"> *</span></label>
+            <input id="profileStudentId" type="text" inputmode="numeric" pattern="^\\d{7}$" placeholder="7-digit ID (e.g., 2404001)" required readonly />
+            <small style="color: rgba(255,255,255,0.7); display:block; margin-top:4px;">Must match your CUET email (u<ID>@student.cuet.ac.bd)</small>
+          </div>
+          <div>
+            <label for="profileHome" style="display:block; margin-bottom:6px;">Home</label>
+            <input id="profileHome" type="text" placeholder="Your home district/city (optional)" />
+          </div>
+          <div>
+            <label for="profileSchool" style="display:block; margin-bottom:6px;">School</label>
+            <input id="profileSchool" type="text" placeholder="Your school (optional)" />
+          </div>
+          <div>
+            <label for="profileCollege" style="display:block; margin-bottom:6px;">College</label>
+            <input id="profileCollege" type="text" placeholder="Your college (optional)" />
+          </div>
+          <div>
+            <label for="profileBloodGroup" style="display:block; margin-bottom:6px;">Blood Group</label>
+            <select id="profileBloodGroup">
+              <option value="">Select blood group</option>
+              <option value="A+">A+</option>
+              <option value="A-">A-</option>
+              <option value="B+">B+</option>
+              <option value="B-">B-</option>
+              <option value="AB+">AB+</option>
+              <option value="AB-">AB-</option>
+              <option value="O+">O+</option>
+              <option value="O-">O-</option>
+            </select>
+          </div>
+          <div>
+            <label for="profileBio" style="display:block; margin-bottom:6px;">Bio</label>
+            <textarea id="profileBio" rows="4" maxlength="300" placeholder="Write a short bio (max 300 chars)"></textarea>
+            <small id="bioCounter" style="color: rgba(255,255,255,0.6); display:block; margin-top:4px;">0 / 300</small>
+          </div>
+          <div>
+            <label for="profileFacebook" style="display:block; margin-bottom:6px;">Facebook Profile Link</label>
+            <input id="profileFacebook" type="url" placeholder="https://www.facebook.com/your.profile" />
+            <small style="color: rgba(255,255,255,0.6); display:block; margin-top:4px;">Must be a valid URL. Example: https://www.facebook.com/your.profile</small>
+          </div>
+          <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:8px;">
+            <button type="button" id="profileLogoutBtn" class="student-auth-btn" style="background:#222; border:1px solid rgba(255,255,255,0.2);">Logout</button>
+            <button type="button" id="profileCancelBtn" class="student-auth-btn" style="background:#444;">Cancel</button>
+            <button type="submit" id="profileSaveBtn" class="student-auth-btn">Save</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Events Modal -->
+    <div class="modal-overlay" id="eventsModalOverlay">
+      <div class="modal-card events-modal">
+        <div class="events-modal-header">
+          <h2 id="events-modal-title">📅 Upcoming Events</h2>
+          <button class="modal-close" id="eventsModalClose">&times;</button>
+        </div>
+        <div id="events-modal-list"></div>
+      </div>
+    </div>
+
+    <!-- Routines Modal -->
+    <div class="modal-overlay" id="routinesModalOverlay">
+      <div class="modal-card routines-modal">
+        <div class="routines-modal-header">
+          <h2 id="routines-modal-title">📚 Course Resources</h2>
+          <button class="modal-close" id="routinesModalClose">&times;</button>
+        </div>
+        <div class="routines-content">
+          <div class="courses-section">
+            <h3>Available Courses</h3>
+            <div id="courses-list"></div>
+          </div>
+          <div class="resources-section">
+            <div class="resources-tabs">
+              <button class="resource-tab active" data-resource="books">📚 Books</button>
+              <button class="resource-tab" data-resource="slides">📊 Lecture Slides</button>
+              <button class="resource-tab" data-resource="student-notes">👨‍🎓 Student Notes</button>
+              <button class="resource-tab" data-resource="lab-reports">🧪 Lab Reports</button>
+            </div>
+            <div class="resources-content">
+              <div id="course-books" class="resource-panel active"></div>
+              <div id="course-slides" class="resource-panel"></div>
+              <div id="course-student-notes" class="resource-panel"></div>
+              <div id="course-lab-reports" class="resource-panel"></div>
+              <div id="resources-loading" class="resources-loading-overlay" aria-live="polite" aria-busy="true">
+                <div class="resources-loading-content">
+                  <div class="resources-spinner" role="status" aria-label="Loading"></div>
+                  <div class="resources-loading-text">Loading page, please wait</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Notice Modal -->
+    <div class="modal-overlay" id="noticeModalOverlay">
+      <div class="modal-card notice-modal">
+        <div class="notice-modal-header">
+          <h2 id="notice-modal-title">📢 Notices</h2>
+          <button class="modal-close" id="noticeModalClose">&times;</button>
+        </div>
+        <div class="notice-content">
+          <div class="notice-filters">
+            <button class="notice-filter active" data-filter="all">All</button>
+            <button class="notice-filter" data-filter="urgent">🚨 Urgent</button>
+            <button class="notice-filter" data-filter="academic">📚 Academic</button>
+            <button class="notice-filter" data-filter="general">📋 General</button>
+          </div>
+          <div id="notice-list" class="notice-list">
+            <!-- Notices will be populated here -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Routine Modal -->
+    <div class="modal-overlay" id="routineModalOverlay">
+      <div class="modal-card routine-modal">
+        <div class="routine-modal-header">
+          <h2 id="routine-modal-title">📅 Class Routine</h2>
+          <button class="modal-close" id="routineModalClose">&times;</button>
+        </div>
+        <div class="routine-content">
+          <div class="routine-filters">
+            <button class="routine-filter active" data-subsection="A1">A1</button>
+            <button class="routine-filter" data-subsection="A2">A2</button>
+            <button class="routine-filter" data-subsection="B1">B1</button>
+            <button class="routine-filter" data-subsection="B2">B2</button>
+          </div>
+          <div class="day-filters">
+            <button class="day-filter active" data-day="all">All Days</button>
+            <button class="day-filter" data-day="sunday">Sunday</button>
+            <button class="day-filter" data-day="monday">Monday</button>
+            <button class="day-filter" data-day="tuesday">Tuesday</button>
+            <button class="day-filter" data-day="wednesday">Wednesday</button>
+            <button class="day-filter" data-day="thursday">Thursday</button>
+          </div>
+          <div class="routine-display">
+            <div id="routine-table" class="routine-table">
+              <!-- Routine table will be populated here -->
+            </div>
+            <div id="extra-classes" class="extra-classes">
+              <!-- Extra classes will be shown here -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p style="text-align: center; margin-top: 20px; color: #fff; font-size: 14px; font-family: 'Source Code Pro', monospace;">Made with ❤️ by <a href="https://www.facebook.com/rabiul.hassan.jomman">Jomman</a></p>
+    <script src="js/firebase-config.js" defer></script>
+    <script src="js/overlay-alert.js" defer></script>
+    <script src="js/index.js" defer></script>
+    <script>
+      // Register service worker globally
+      (function() {
+        if ('serviceWorker' in navigator) {
+          window.addEventListener('load', function() {
+            navigator.serviceWorker.register('sw.js').catch(function(e){ console.warn('SW registration failed', e); });
+          });
+        }
+      })();
+    </script>
+  </body>
+</html>

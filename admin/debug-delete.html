@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Debug Delete - CUET CSE-24</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 1000px;
+        margin: 50px auto;
+        padding: 20px;
+        background: linear-gradient(135deg, rgb(10, 0, 30), rgb(20, 10, 50));
+        color: white;
+      }
+      .debug-section {
+        background: rgba(40, 30, 90, 0.8);
+        padding: 20px;
+        margin: 20px 0;
+        border-radius: 10px;
+        border: 1px solid rgba(250, 21, 136, 0.3);
+      }
+      .success {
+        color: #4caf50;
+      }
+      .error {
+        color: #f44336;
+      }
+      .info {
+        color: #2196f3;
+      }
+      .warning {
+        color: #ff9800;
+      }
+      button {
+        background: linear-gradient(135deg, rgb(250, 21, 136), #ff6b9d);
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 5px;
+        cursor: pointer;
+        margin: 5px;
+      }
+      button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(250, 21, 136, 0.4);
+      }
+      #debug-log {
+        margin-top: 20px;
+        padding: 15px;
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: 5px;
+        white-space: pre-wrap;
+        max-height: 400px;
+        overflow-y: auto;
+      }
+      .event-item {
+        background: rgba(250, 21, 136, 0.1);
+        padding: 10px;
+        margin: 10px 0;
+        border-radius: 5px;
+        border-left: 3px solid rgb(250, 21, 136);
+      }
+      .delete-btn {
+        background: #f44336 !important;
+        margin-left: 10px;
+      }
+    </style>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  </head>
+  <body>
+    <h1>🔍 Debug Delete Functionality</h1>
+
+    <div class="debug-section">
+      <h2>Step 1: Test Firebase Connection</h2>
+      <button onclick="testConnection()">Test Connection</button>
+      <button onclick="clearLog()">Clear Log</button>
+    </div>
+
+    <div class="debug-section">
+      <h2>Step 2: Load Current Events</h2>
+      <button onclick="loadEvents()">Load Events</button>
+      <div id="events-display"></div>
+    </div>
+
+    <div class="debug-section">
+      <h2>Step 3: Test Individual Delete</h2>
+      <div id="delete-test"></div>
+    </div>
+
+    <div class="debug-section">
+      <h2>Step 4: Test Batch Delete</h2>
+      <button onclick="deleteAllEvents()">Delete All Events</button>
+      <button onclick="addTestEvents()">Add Test Events</button>
+    </div>
+
+    <div class="debug-section">
+      <h2>Debug Log</h2>
+      <div id="debug-log">Click "Test Connection" to start...</div>
+    </div>
+
+    <script src="../js/firebase-config.js"></script>
+    <script>
+      let debugLog = document.getElementById("debug-log");
+      let eventsDisplay = document.getElementById("events-display");
+      let deleteTest = document.getElementById("delete-test");
+      let currentEvents = [];
+
+      function log(message, type = "info") {
+        const timestamp = new Date().toLocaleTimeString();
+        debugLog.innerHTML += `[${timestamp}] ${message}\n`;
+        console.log(`[${type.toUpperCase()}] ${message}`);
+        debugLog.scrollTop = debugLog.scrollHeight;
+      }
+
+      function clearLog() {
+        debugLog.innerHTML = "";
+      }
+
+      async function testConnection() {
+        log("🔍 Testing Firebase connection...", "info");
+        try {
+          if (typeof firebase === "undefined") {
+            throw new Error("Firebase SDK not loaded");
+          }
+          log("✅ Firebase SDK loaded", "success");
+
+          if (typeof db === "undefined") {
+            throw new Error("Firestore not initialized");
+          }
+          log("✅ Firestore initialized", "success");
+
+          // Test a simple query
+          const testQuery = await db.collection("test").limit(1).get();
+          log("✅ Database connection successful", "success");
+          log(`✅ Project: ${db.app.options.projectId}`, "success");
+        } catch (error) {
+          log(`❌ Connection failed: ${error.message}`, "error");
+          log(`Stack: ${error.stack}`, "error");
+        }
+      }
+
+      async function loadEvents() {
+        log("📋 Loading events from database...", "info");
+        try {
+          const snapshot = await db
+            .collection("events")
+            .orderBy("date", "asc")
+            .get();
+          currentEvents = [];
+
+          if (snapshot.empty) {
+            log("ℹ️ No events found in database", "info");
+            eventsDisplay.innerHTML = '<p class="info">No events found</p>';
+            deleteTest.innerHTML = '<p class="info">No events to delete</p>';
+            return;
+          }
+
+          let eventsHtml = "<h3>Current Events:</h3>";
+          let deleteHtml = "<h3>Delete Test:</h3>";
+
+          snapshot.forEach((doc) => {
+            const event = doc.data();
+            const eventId = doc.id;
+            currentEvents.push({ id: eventId, ...event });
+
+            eventsHtml += `
+                        <div class="event-item">
+                            <strong>${event.title}</strong> (ID: ${eventId})<br>
+                            📅 ${event.date}<br>
+                            📝 ${event.description}<br>
+                            ${event.urgent ? "🚨 URGENT" : "📋 Normal"}
+                        </div>
+                    `;
+
+            deleteHtml += `
+                        <div class="event-item">
+                            <strong>${event.title}</strong>
+                            <button class="delete-btn" onclick="deleteSingleEvent('${eventId}', '${event.title}')">Delete This Event</button>
+                        </div>
+                    `;
+          });
+
+          eventsDisplay.innerHTML = eventsHtml;
+          deleteTest.innerHTML = deleteHtml;
+          log(`✅ Loaded ${snapshot.size} events`, "success");
+        } catch (error) {
+          log(`❌ Load events failed: ${error.message}`, "error");
+          eventsDisplay.innerHTML = `<p class="error">Error: ${error.message}</p>`;
+        }
+      }
+
+      async function deleteSingleEvent(eventId, eventTitle) {
+        log(
+          `🗑️ Attempting to delete event: ${eventTitle} (ID: ${eventId})`,
+          "info"
+        );
+        try {
+          await db.collection("events").doc(eventId).delete();
+          log(`✅ Successfully deleted: ${eventTitle}`, "success");
+
+          // Refresh the display
+          setTimeout(() => {
+            loadEvents();
+          }, 1000);
+        } catch (error) {
+          log(`❌ Delete failed for ${eventTitle}: ${error.message}`, "error");
+        }
+      }
+
+      async function deleteAllEvents() {
+        log("🗑️ Deleting all events...", "info");
+        try {
+          const snapshot = await db.collection("events").get();
+
+          if (snapshot.empty) {
+            log("ℹ️ No events to delete", "info");
+            return;
+          }
+
+          log(`📊 Found ${snapshot.size} events to delete`, "info");
+
+          const batch = db.batch();
+          snapshot.docs.forEach((doc) => {
+            log(`🗑️ Adding ${doc.data().title} to delete batch`, "info");
+            batch.delete(doc.ref);
+          });
+
+          await batch.commit();
+          log(`✅ Successfully deleted ${snapshot.size} events`, "success");
+
+          // Refresh display
+          setTimeout(() => {
+            loadEvents();
+          }, 1000);
+        } catch (error) {
+          log(`❌ Batch delete failed: ${error.message}`, "error");
+        }
+      }
+
+      async function addTestEvents() {
+        log("➕ Adding test events...", "info");
+        try {
+          const testEvents = [
+            {
+              title: "Test Event 1",
+              date: "2024-12-10",
+              description: "This is a test event for debugging",
+              details: ["Duration: 1 hour", "Total Marks: 20", "Room: Test"],
+              urgent: false,
+            },
+            {
+              title: "Test Event 2",
+              date: "2024-12-12",
+              description: "Another test event for debugging",
+              details: ["Duration: 1.5 hours", "Total Marks: 30", "Room: Test"],
+              urgent: true,
+            },
+          ];
+
+          const batch = db.batch();
+          testEvents.forEach((event) => {
+            const docRef = db.collection("events").doc();
+            batch.set(docRef, event);
+            log(`➕ Adding test event: ${event.title}`, "info");
+          });
+
+          await batch.commit();
+          log("✅ Test events added successfully", "success");
+
+          // Refresh display
+          setTimeout(() => {
+            loadEvents();
+          }, 1000);
+        } catch (error) {
+          log(`❌ Add test events failed: ${error.message}`, "error");
+        }
+      }
+
+      // Auto-test on page load
+      window.addEventListener("load", () => {
+        log("🚀 Debug page loaded", "info");
+        log('Click "Test Connection" to start debugging', "info");
+      });
+    </script>
+  </body>
+</html>

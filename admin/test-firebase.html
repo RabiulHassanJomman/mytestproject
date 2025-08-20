@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Firebase Test - CUET CSE-24</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 50px auto;
+        padding: 20px;
+        background: linear-gradient(135deg, rgb(10, 0, 30), rgb(20, 10, 50));
+        color: white;
+      }
+      c .test-section {
+        background: rgba(40, 30, 90, 0.8);
+        padding: 20px;
+        margin: 20px 0;
+        border-radius: 10px;
+        border: 1px solid rgba(250, 21, 136, 0.3);
+      }
+      .success {
+        color: #4caf50;
+      }
+      .error {
+        color: #f44336;
+      }
+      .info {
+        color: #2196f3;
+      }
+      button {
+        background: linear-gradient(135deg, rgb(250, 21, 136), #ff6b9d);
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 5px;
+        cursor: pointer;
+        margin: 5px;
+      }
+      button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(250, 21, 136, 0.4);
+      }
+      #results {
+        margin-top: 20px;
+        padding: 15px;
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: 5px;
+        white-space: pre-wrap;
+      }
+    </style>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  </head>
+  <body>
+    <h1>🔥 Firebase Connection Test</h1>
+
+    <div class="test-section">
+      <h2>Connection Test</h2>
+      <button onclick="testConnection()">Test Firebase Connection</button>
+      <button onclick="testWrite()">Test Write to Database</button>
+      <button onclick="testRead()">Test Read from Database</button>
+      <button onclick="clearResults()">Clear Results</button>
+    </div>
+
+    <div class="test-section">
+      <h2>Test Results</h2>
+      <div id="results">Click a test button to start...</div>
+    </div>
+
+    <div class="test-section">
+      <h2>Current Events in Database</h2>
+      <button onclick="loadAllEvents()">Load All Events</button>
+      <button onclick="deleteAllEvents()">Delete All Events</button>
+      <div id="events-list"></div>
+    </div>
+
+    <script src="../js/firebase-config.js"></script>
+    <script>
+      let resultsDiv = document.getElementById("results");
+      let eventsListDiv = document.getElementById("events-list");
+
+      function log(message, type = "info") {
+        const timestamp = new Date().toLocaleTimeString();
+        resultsDiv.innerHTML += `[${timestamp}] ${message}\n`;
+        console.log(`[${type.toUpperCase()}] ${message}`);
+      }
+
+      function clearResults() {
+        resultsDiv.innerHTML = "";
+      }
+
+      async function testConnection() {
+        log("Testing Firebase connection...", "info");
+        try {
+          // Test if Firebase is initialized
+          if (typeof firebase === "undefined") {
+            throw new Error("Firebase SDK not loaded");
+          }
+
+          if (typeof db === "undefined") {
+            throw new Error("Firestore not initialized");
+          }
+
+          log("✅ Firebase SDK loaded successfully", "success");
+          log("✅ Firestore database initialized", "success");
+
+          // Test a simple query
+          const testQuery = await db.collection("test").limit(1).get();
+          log("✅ Database connection successful", "success");
+          log(`✅ Firestore instance: ${db.app.name}`, "success");
+        } catch (error) {
+          log(`❌ Connection failed: ${error.message}`, "error");
+          log(`Error details: ${error.stack}`, "error");
+        }
+      }
+
+      async function testWrite() {
+        log("Testing write to database...", "info");
+        try {
+          const testData = {
+            title: "Test Event",
+            date: new Date().toISOString(),
+            description:
+              "This is a test event to verify database write functionality",
+            details: ["Duration: 1 hour", "Total Marks: 10", "Room: Test"],
+            urgent: false,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+          };
+
+          const docRef = await db.collection("test").add(testData);
+          log(`✅ Write successful! Document ID: ${docRef.id}`, "success");
+
+          // Clean up test data
+          setTimeout(async () => {
+            try {
+              await docRef.delete();
+              log("✅ Test data cleaned up", "success");
+            } catch (cleanupError) {
+              log(`⚠️ Cleanup failed: ${cleanupError.message}`, "error");
+            }
+          }, 5000);
+        } catch (error) {
+          log(`❌ Write failed: ${error.message}`, "error");
+        }
+      }
+
+      async function testRead() {
+        log("Testing read from database...", "info");
+        try {
+          const snapshot = await db.collection("events").limit(5).get();
+          log(`✅ Read successful! Found ${snapshot.size} events`, "success");
+
+          if (snapshot.empty) {
+            log("ℹ️ No events found in database", "info");
+          } else {
+            snapshot.forEach((doc) => {
+              log(`📄 Event: ${doc.data().title}`, "info");
+            });
+          }
+        } catch (error) {
+          log(`❌ Read failed: ${error.message}`, "error");
+        }
+      }
+
+      async function loadAllEvents() {
+        log("Loading all events from database...", "info");
+        try {
+          const snapshot = await db
+            .collection("events")
+            .orderBy("date", "asc")
+            .get();
+
+          if (snapshot.empty) {
+            eventsListDiv.innerHTML =
+              '<p class="info">No events found in database</p>';
+            log("ℹ️ No events found in database", "info");
+            return;
+          }
+
+          let eventsHtml = "<h3>Events in Database:</h3>";
+          snapshot.forEach((doc) => {
+            const event = doc.data();
+            eventsHtml += `
+                        <div style="background: rgba(250, 21, 136, 0.1); padding: 10px; margin: 10px 0; border-radius: 5px; border-left: 3px solid rgb(250, 21, 136);">
+                            <strong>${event.title}</strong><br>
+                            📅 ${event.date}<br>
+                            📝 ${event.description}<br>
+                            🏷️ ${event.details.join(" | ")}<br>
+                            ${event.urgent ? "🚨 URGENT" : "📋 Normal"}
+                        </div>
+                    `;
+          });
+
+          eventsListDiv.innerHTML = eventsHtml;
+          log(`✅ Loaded ${snapshot.size} events successfully`, "success");
+        } catch (error) {
+          log(`❌ Load events failed: ${error.message}`, "error");
+          eventsListDiv.innerHTML = `<p class="error">Error loading events: ${error.message}</p>`;
+        }
+      }
+
+      async function deleteAllEvents() {
+        log("Deleting all events from database...", "info");
+        try {
+          const snapshot = await db.collection("events").get();
+
+          if (snapshot.empty) {
+            log("ℹ️ No events to delete", "info");
+            return;
+          }
+
+          const batch = db.batch();
+          snapshot.docs.forEach((doc) => {
+            batch.delete(doc.ref);
+          });
+          await batch.commit();
+
+          log(`✅ Deleted ${snapshot.size} events successfully`, "success");
+          eventsListDiv.innerHTML =
+            '<p class="success">All events deleted!</p>';
+        } catch (error) {
+          log(`❌ Delete events failed: ${error.message}`, "error");
+          eventsListDiv.innerHTML = `<p class="error">Error deleting events: ${error.message}</p>`;
+        }
+      }
+
+      // Auto-test on page load
+      window.addEventListener("load", () => {
+        log("🚀 Firebase Test Page Loaded", "info");
+        log('Click "Test Firebase Connection" to start testing', "info");
+      });
+    </script>
+  </body>
+</html>

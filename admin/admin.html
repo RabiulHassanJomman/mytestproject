@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin Panel - CUET CSE-24</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="../css/admin.css" />
+    <link rel="stylesheet" href="../css/alerts.css" />
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="../assets/icons/favicon-admin.svg"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      href="../assets/icons/favicon-admin.png"
+    />
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  </head>
+  <body>
+    <!-- Login Screen -->
+    <div id="loginScreen" class="login-container">
+      <div class="login-card">
+        <h2>🔐 Admin Login</h2>
+        <form id="loginForm">
+          <div class="input-group">
+            <label for="username">Username:</label>
+            <input type="text" id="username" required />
+          </div>
+          <div class="input-group">
+            <label for="password">Password:</label>
+            <input type="password" id="password" required />
+          </div>
+          <button type="submit" class="login-btn">Login</button>
+        </form>
+        <div id="loginError" class="error-message"></div>
+      </div>
+    </div>
+
+    <!-- Admin Dashboard -->
+    <div id="adminDashboard" class="admin-dashboard" style="display: none">
+      <header class="admin-header">
+        <h1>📊 Admin Panel</h1>
+        <div class="header-controls">
+          <button id="backToMain" class="back-btn">← Back to Main</button>
+          <button id="logoutBtn" class="logout-btn">Logout</button>
+        </div>
+      </header>
+
+      <main class="admin-main">
+        <section class="events-section">
+          <h2>📅 Manage CT Events</h2>
+          <button id="addEventBtn" class="add-btn">+ Add New Event</button>
+
+          <div id="eventsList" class="events-list">
+            <!-- Events will be populated here -->
+          </div>
+        </section>
+
+        <section class="courses-section">
+          <h2>📚 Manage Courses & Resources</h2>
+          <div class="courses-controls">
+            <button id="addCourseBtn" class="add-btn">+ Add New Course</button>
+            <button id="addNoteBtn" class="add-btn">+ Add Book</button>
+            <button id="addSlideBtn" class="add-btn">+ Add Lecture Slide</button>
+            <button id="addStudentNoteBtn" class="add-btn">+ Add Student Note</button>
+            <button id="addLabReportBtn" class="add-btn">+ Add Lab Report</button>
+          </div>
+
+          <div id="coursesList" class="courses-list">
+            <!-- Courses will be populated here -->
+          </div>
+        </section>
+
+        <section class="notices-section">
+          <h2>📢 Manage Notices</h2>
+          <div class="notices-controls">
+            <button id="addNoticeBtn" class="add-btn">+ Add New Notice</button>
+          </div>
+
+          <div id="noticesList" class="notices-list">
+            <!-- Notices will be populated here -->
+          </div>
+        </section>
+
+        <section class="extra-classes-section">
+          <h2>📅 Manage Extra Classes</h2>
+          <div class="extra-classes-controls">
+            <button id="addExtraClassBtn" class="add-btn">+ Add Extra Class</button>
+          </div>
+
+          <div id="extraClassesList" class="extra-classes-list">
+            <!-- Extra classes will be populated here -->
+          </div>
+                </section>
+       </main>
+       <div id="admin-loading" class="admin-loading-overlay" aria-live="polite" aria-busy="true">
+         <div class="admin-loading-content">
+           <div class="admin-spinner" role="status" aria-label="Loading"></div>
+           <div class="admin-loading-text">Loading page, please wait</div>
+         </div>
+       </div>
+     </div>
+ 
+     <!-- Add/Edit Event Modal -->
+    <div id="eventModal" class="modal-overlay">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 id="modalTitle">Add New Event</h3>
+          <button class="modal-close" id="closeEventModal">&times;</button>
+        </div>
+        <form id="eventForm">
+          <div class="form-group">
+            <label for="eventTitle">Event Title:</label>
+            <input type="text" id="eventTitle" required />
+          </div>
+          <div class="form-group">
+            <label for="eventDate">Date:</label>
+            <input type="date" id="eventDate" required />
+          </div>
+          <div class="form-group">
+            <label for="eventTime">Time:</label>
+            <input type="time" id="eventTime" required />
+          </div>
+          <div class="form-group">
+            <label for="eventDescription">Description:</label>
+            <textarea id="eventDescription" rows="4" required></textarea>
+          </div>
+          <div class="form-group">
+            <label for="eventDuration">Duration:</label>
+            <input
+              type="text"
+              id="eventDuration"
+              placeholder="e.g., 2 hours"
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label for="eventMarks">Total Marks:</label>
+            <input type="number" id="eventMarks" required />
+          </div>
+          <div class="form-group">
+            <label for="eventRoom">Room:</label>
+            <input type="text" id="eventRoom" required />
+          </div>
+          <div class="form-group">
+            <label>
+              <input type="checkbox" id="eventUrgent" />
+              Mark as Urgent
+            </label>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="save-btn">Save Event</button>
+            <button type="button" class="cancel-btn" id="cancelEvent">
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Add/Edit Course Modal -->
+    <div id="courseModal" class="modal-overlay">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 id="courseModalTitle">Add New Course</h3>
+          <button class="modal-close" id="closeCourseModal">&times;</button>
+        </div>
+        <form id="courseForm">
+          <div class="form-group">
+            <label for="courseCode">Course Code:</label>
+            <input type="text" id="courseCode" placeholder="e.g., EE-181" required />
+          </div>
+          <div class="form-group">
+            <label for="courseTitle">Course Title:</label>
+            <input type="text" id="courseTitle" placeholder="e.g., Digital Logic Design" required />
+          </div>
+          <div class="form-group">
+            <label for="courseInstructor">Instructor:</label>
+            <input type="text" id="courseInstructor" placeholder="e.g., Dr. John Doe" />
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="save-btn">Save Course</button>
+            <button type="button" class="cancel-btn" id="cancelCourse">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Add/Edit Note Modal -->
+    <div id="noteModal" class="modal-overlay">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 id="noteModalTitle">Add New Resource</h3>
+          <button class="modal-close" id="closeNoteModal">&times;</button>
+        </div>
+        <form id="noteForm">
+          <div class="form-group">
+            <label for="noteCourse">Select Course:</label>
+            <select id="noteCourse" required>
+              <option value="">Choose a course...</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="noteType">Resource Type:</label>
+            <select id="noteType" required>
+              <option value="books">📚 Books</option>
+              <option value="slides">📊 Lecture Slides</option>
+              <option value="student-notes">👨‍🎓 Student Notes</option>
+              <option value="lab-reports">🧪 Lab Reports</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="noteTitle">Resource Title:</label>
+            <input type="text" id="noteTitle" placeholder="e.g., Chapter 1: Introduction" required />
+          </div>
+          <div class="form-group">
+            <label for="noteDescription">Description:</label>
+            <textarea id="noteDescription" rows="3" placeholder="Brief description of the resource content"></textarea>
+          </div>
+          <div class="form-group">
+            <label for="noteLink">Google Drive Link:</label>
+            <input type="url" id="noteLink" placeholder="https://drive.google.com/..." required />
+            <small style="color: #888; font-size: 12px;">Paste the Google Drive link from the shared folder</small>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="save-btn">Save Resource</button>
+            <button type="button" class="cancel-btn" id="cancelNote">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Add/Edit Notice Modal -->
+    <div id="noticeModal" class="modal-overlay">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 id="noticeModalTitle">Add New Notice</h3>
+          <button class="modal-close" id="closeNoticeModal">&times;</button>
+        </div>
+        <form id="noticeForm">
+          <div class="form-group">
+            <label for="noticeTitle">Notice Title:</label>
+            <input type="text" id="noticeTitle" placeholder="e.g., Important Announcement" required />
+          </div>
+          <div class="form-group">
+            <label for="noticeCategory">Category:</label>
+            <select id="noticeCategory" required>
+              <option value="">Choose category...</option>
+              <option value="urgent">🚨 Urgent</option>
+              <option value="academic">📚 Academic</option>
+              <option value="general">📋 General</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="noticeContent">Content:</label>
+            <textarea id="noticeContent" rows="6" placeholder="Enter notice content..." required></textarea>
+          </div>
+          <div class="form-group">
+            <label for="noticeAttachments">Attachments:</label>
+            <div id="attachmentsList" class="attachments-list">
+              <!-- Attachment inputs will be added here -->
+            </div>
+            <button type="button" id="addAttachmentBtn" class="attachment-btn">+ Add Attachment</button>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="save-btn">Save Notice</button>
+            <button type="button" class="cancel-btn" id="cancelNotice">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Add/Edit Extra Class Modal -->
+    <div id="extraClassModal" class="modal-overlay">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 id="extraClassModalTitle">Add Extra Class</h3>
+          <button class="modal-close" id="closeExtraClassModal">&times;</button>
+        </div>
+        <form id="extraClassForm">
+          <div class="form-group">
+            <label for="extraClassTitle">Class Title:</label>
+            <input type="text" id="extraClassTitle" placeholder="e.g., Make-up Class for CSE-101" required />
+          </div>
+          <div class="form-group">
+            <label for="extraClassSubject">Subject:</label>
+            <input type="text" id="extraClassSubject" placeholder="e.g., CSE-141" required />
+          </div>
+          <div class="form-group">
+            <label for="extraClassSubsection">Subsection:</label>
+            <select id="extraClassSubsection">
+              <option value="">No Subsection</option>
+              <option value="A1">A1</option>
+              <option value="A2">A2</option>
+              <option value="B1">B1</option>
+              <option value="B2">B2</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="extraClassDate">Date:</label>
+            <input type="date" id="extraClassDate" required />
+          </div>
+          <div class="form-group">
+            <label for="extraClassDay">Day of Week:</label>
+            <select id="extraClassDay" required>
+              <option value="">Select Day</option>
+              <option value="sunday">Sunday</option>
+              <option value="monday">Monday</option>
+              <option value="tuesday">Tuesday</option>
+              <option value="wednesday">Wednesday</option>
+              <option value="thursday">Thursday</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="extraClassTime">Time:</label>
+            <input type="time" id="extraClassTime" required />
+          </div>
+          <div class="form-group">
+            <label for="extraClassRoom">Room:</label>
+            <input type="text" id="extraClassRoom" placeholder="e.g., Room 101" />
+          </div>
+          <div class="form-group">
+            <label for="extraClassInstructor">Instructor:</label>
+            <input type="text" id="extraClassInstructor" placeholder="e.g., Dr. Smith" />
+          </div>
+          <div class="form-group">
+            <label for="extraClassDescription">Description:</label>
+            <textarea id="extraClassDescription" rows="3" placeholder="Brief description of the extra class..."></textarea>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="save-btn">Save Extra Class</button>
+            <button type="button" class="cancel-btn" id="cancelExtraClass">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script src="../js/firebase-config.js"></script>
+    <script>
+      // Initialize Firebase for admin page if not already initialized
+      (function() {
+        try {
+          const cfg = window.__firebaseConfig;
+          if (!cfg) throw new Error('Missing Firebase config');
+          if (!window.firebase.apps || window.firebase.apps.length === 0) {
+            window.firebase.initializeApp(cfg);
+          }
+          if (!window.db) {
+            window.db = window.firebase.firestore();
+            try { window.db.enablePersistence({ synchronizeTabs: true }); } catch (e) {}
+          }
+        } catch (e) {
+          console.error('Failed to initialize Firebase in admin page:', e);
+        }
+      })();
+    </script>
+    <script src="../js/overlay-alert.js"></script>
+    <script src="../js/admin.js"></script>
+    <script>
+      // Register service worker to precache admin assets for instant page load offline
+      (function() {
+        if ('serviceWorker' in navigator) {
+          window.addEventListener('load', function() {
+            navigator.serviceWorker.register('../sw.js').catch(function(e) { console.warn('SW registration failed', e); });
+          });
+        }
+      })();
+    </script>
+  </body>
+</html>
