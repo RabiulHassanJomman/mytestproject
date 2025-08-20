@@ -441,7 +441,7 @@
       time: time,
       description: description,
       details: details,
-      room: room || undefined,
+      room: room || '',
       urgent: urgent,
       updatedAt: firebase && firebase.firestore ? firebase.firestore.FieldValue.serverTimestamp() : Date.now(),
     };
@@ -505,7 +505,7 @@
     var payload = {
       code: code,
       title: title,
-      instructor: instructor || undefined,
+      instructor: instructor || '',
       description: '',
       updatedAt: firebase && firebase.firestore ? firebase.firestore.FieldValue.serverTimestamp() : Date.now(),
     };
@@ -570,7 +570,7 @@
       courseId: courseId,
       type: type,
       title: title,
-      description: description || undefined,
+      description: description || '',
       url: url,
       linkUrl: url,
       section: section,
@@ -752,9 +752,9 @@
       date: normalizeDateValue(qs('#extraClassDate').value),
       day: qs('#extraClassDay').value || '',
       time: qs('#extraClassTime').value || '',
-      room: (qs('#extraClassRoom').value || '').trim() || undefined,
-      instructor: (qs('#extraClassInstructor').value || '').trim() || undefined,
-      description: (qs('#extraClassDescription').value || '').trim() || undefined,
+      room: (qs('#extraClassRoom').value || '').trim() || '',
+      instructor: (qs('#extraClassInstructor').value || '').trim() || '',
+      description: (qs('#extraClassDescription').value || '').trim() || '',
       updatedAt: firebase && firebase.firestore ? firebase.firestore.FieldValue.serverTimestamp() : Date.now(),
     };
     if (!editing.extraClassId) payload.createdAt = payload.updatedAt;
