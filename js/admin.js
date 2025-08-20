@@ -84,6 +84,7 @@
       coursesList: qs('#coursesList'),
       noticesList: qs('#noticesList'),
       extraClassesList: qs('#extraClassesList'),
+      resourcesList: qs('#resourcesList'),
 
       // Buttons
       addEventBtn: qs('#addEventBtn'),
@@ -133,12 +134,14 @@
     coursesById: {},
     noticesById: {},
     extraClassesById: {},
+    resourcesById: {},
   };
   var editing = {
     eventId: null,
     courseId: null,
     noticeId: null,
     extraClassId: null,
+    resourceId: null,
   };
 
   // Modal helpers
@@ -152,6 +155,7 @@
       loadAndRenderCourses(),
       loadAndRenderNotices(),
       loadAndRenderExtraClasses(),
+      loadAndRenderResources(),
       populateCourseOptions(),
     ]);
   }
@@ -297,6 +301,90 @@
       return '<li><a href="' + escapeAttr(url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(name) + '</a></li>';
     }).join('') + '</ul></div>';
     return html;
+  }
+
+  // Resources CRUD and listing
+  async function loadAndRenderResources() {
+    var d = ensureDb();
+    var listEl = getEls().resourcesList;
+    if (!listEl) return;
+    listEl.innerHTML = '';
+    var snap = await d.collection('resources').orderBy('createdAt', 'desc').get();
+    cache.resourcesById = {};
+    if (snap.empty) {
+      listEl.innerHTML = '<div class="empty-hint">No resources yet.</div>';
+      return;
+    }
+    var html = '';
+    snap.forEach(function (doc) {
+      var r = doc.data();
+      cache.resourcesById[doc.id] = r;
+      var course = cache.coursesById[r.courseId];
+      var courseLabel = course ? (course.title || course.code || r.courseId) : (r.courseId || 'Course');
+      var typeLabel = r.type || 'resource';
+      html += `
+        <div class="notice-admin-item" data-id="${doc.id}">
+          <div class="notice-admin-header">
+            <div class="notice-admin-info">
+              <h3>${escapeHtml(r.title || 'Untitled')}</h3>
+              <p>📚 ${escapeHtml(courseLabel)} | 🏷️ ${escapeHtml(typeLabel)}</p>
+            </div>
+            <div class="notice-admin-actions">
+              <button data-action="edit">Edit</button>
+              <button class="delete-btn" data-action="delete">Delete</button>
+            </div>
+          </div>
+          <div class="notice-admin-content">${escapeHtml(r.description || '')}${r.url ? ('<br><a href="' + escapeAttr(r.url) + '" target="_blank" rel="noopener noreferrer">Open link</a>') : ''}</div>
+        </div>`;
+    });
+    listEl.innerHTML = html;
+    qsa('#resourcesList .notice-admin-item').forEach(function (row) {
+      var id = row.getAttribute('data-id');
+      row.addEventListener('click', function (e) {
+        var action = (e.target && e.target.getAttribute('data-action')) || '';
+        if (action === 'edit') { e.preventDefault(); e.stopPropagation(); openEditResource(id); }
+        else if (action === 'delete') { e.preventDefault(); e.stopPropagation(); deleteResource(id); }
+      });
+    });
+  }
+
+  async function openEditResource(id) {
+    var r = cache.resourcesById[id];
+    if (!r) return;
+    editing.resourceId = id;
+    qs('#noteModalTitle').textContent = 'Edit Resource';
+    var f = getEls();
+    if (f.noteForm) {
+      f.noteForm.reset();
+    }
+    // Ensure course options are populated before set value
+    try { await populateCourseOptions(); } catch (_) {}
+    if (getEls().noteCourseSelect) {
+      getEls().noteCourseSelect.value = r.courseId || '';
+    }
+    if (getEls().noteTypeSelect) {
+      getEls().noteTypeSelect.value = r.type || 'books';
+    }
+    qs('#noteTitle').value = r.title || '';
+    qs('#noteDescription').value = r.description || '';
+    qs('#noteLink').value = r.url || '';
+    openModal(getEls().noteModal);
+  }
+
+  async function deleteResource(id) {
+    var d = ensureDb();
+    var r = cache.resourcesById[id];
+    if (!r) return;
+    var ok = await showThemedConfirm('Delete resource "' + (r.title || 'Untitled') + '"?', { type: 'warning', okText: 'Delete' });
+    if (!ok) return;
+    showLoading('Deleting resource...');
+    try {
+      await d.collection('resources').doc(id).delete();
+      await loadAndRenderResources();
+    } catch (err) {
+      console.error(err);
+      await showThemedAlert('Failed to delete resource: ' + err.message, { type: 'error' });
+    } finally { hideLoading(); }
   }
 
   async function loadAndRenderExtraClasses() {
@@ -513,10 +601,12 @@
 
   // Resources (Books/Slides/Student Notes/Lab Reports) via noteModal
   function openCreateResource(presetType) {
+    editing.resourceId = null;
     var f = getEls();
     if (!f.noteForm) return;
     f.noteForm.reset();
     if (presetType) f.noteTypeSelect.value = presetType;
+    qs('#noteModalTitle').textContent = 'Add New Resource';
     openModal(f.noteModal);
   }
   async function saveResource(e) {
@@ -528,6 +618,9 @@
     var title = qs('#noteTitle').value.trim();
     var description = qs('#noteDescription').value.trim();
     var url = qs('#noteLink').value.trim();
+    var baseTimestamps = {
+      updatedAt: firebase && firebase.firestore ? firebase.firestore.FieldValue.serverTimestamp() : Date.now(),
+    };
     var payload = {
       courseId: courseId,
       type: type,
@@ -535,12 +628,18 @@
       description: description || undefined,
       url: url,
       section: 'all',
-      createdAt: firebase && firebase.firestore ? firebase.firestore.FieldValue.serverTimestamp() : Date.now(),
+      // createdAt only when creating new
     };
     showLoading('Saving resource...');
     try {
-      await d.collection('resources').add(payload);
+      if (editing.resourceId) {
+        await d.collection('resources').doc(editing.resourceId).set(Object.assign({}, payload, baseTimestamps), { merge: true });
+      } else {
+        payload.createdAt = baseTimestamps.updatedAt;
+        await d.collection('resources').add(Object.assign({}, payload));
+      }
       await showThemedAlert('Resource saved successfully', { type: 'success' });
+      await loadAndRenderResources();
       closeModal(f.noteModal);
     } catch (err) {
       console.error(err);
