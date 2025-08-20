@@ -74,6 +74,12 @@ service cloud.firestore {
       }
     }
 
+    // Course resources (top-level collection)
+    match /resources/{docId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
     // Extra classes
     match /extraClasses/{docId} {
       allow read: if true;
