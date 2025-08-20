@@ -37,12 +37,12 @@
     if (!overlay) return;
     var textEl = overlay.querySelector('.admin-loading-text');
     if (textEl && message) textEl.textContent = String(message);
-    overlay.style.display = 'flex';
+    overlay.classList.add('show');
   }
   function hideLoading() {
     var overlay = qs('#admin-loading');
     if (!overlay) return;
-    overlay.style.display = 'none';
+    overlay.classList.remove('show');
   }
 
   function formatDateForInput(d) {
@@ -495,13 +495,15 @@
       } else {
         await d.collection('events').add(payload);
       }
+      hideLoading();
       await window.showThemedAlert('Event saved successfully', { type: 'success' });
       await loadAndRenderEvents();
       closeModal(getEls().eventModal);
     } catch (err) {
       console.error(err);
+      hideLoading();
       await window.showThemedAlert('Failed to save event: ' + err.message, { type: 'error' });
-    } finally { hideLoading(); }
+    }
   }
   async function deleteEvent(id) {
     var d = ensureDb();
@@ -559,13 +561,15 @@
       } else {
         await d.collection('courses').add(payload);
       }
+      hideLoading();
       await window.showThemedAlert('Course saved successfully', { type: 'success' });
       await Promise.all([loadAndRenderCourses(), populateCourseOptions()]);
       closeModal(getEls().courseModal);
     } catch (err) {
       console.error(err);
+      hideLoading();
       await window.showThemedAlert('Failed to save course: ' + err.message, { type: 'error' });
-    } finally { hideLoading(); }
+    }
   }
   async function deleteCourse(id) {
     var d = ensureDb();
@@ -634,13 +638,15 @@
         await newRef.set(Object.assign({}, payload, { createdAt: createdAt }));
         await d.collection('courses').doc(courseId).collection(type).doc(newId).set(Object.assign({}, payload, { createdAt: createdAt }));
       }
+      hideLoading();
       await window.showThemedAlert('Resource saved successfully', { type: 'success' });
       await loadAndRenderResources();
       closeModal(f.noteModal);
     } catch (err) {
       console.error(err);
+      hideLoading();
       await window.showThemedAlert('Failed to save resource: ' + err.message, { type: 'error' });
-    } finally { hideLoading(); }
+    }
   }
   async function populateCourseOptions() {
     var f = getEls();
@@ -735,13 +741,15 @@
       } else {
         await d.collection('notices').add(payload);
       }
+      hideLoading();
       await window.showThemedAlert('Notice saved successfully', { type: 'success' });
       await loadAndRenderNotices();
       closeModal(getEls().noticeModal);
     } catch (err) {
       console.error(err);
+      hideLoading();
       await window.showThemedAlert('Failed to save notice: ' + err.message, { type: 'error' });
-    } finally { hideLoading(); }
+    }
   }
   async function deleteNotice(id) {
     var d = ensureDb();
@@ -807,13 +815,15 @@
       } else {
         await d.collection('extraClasses').add(payload);
       }
+      hideLoading();
       await window.showThemedAlert('Extra class saved successfully', { type: 'success' });
       await loadAndRenderExtraClasses();
       closeModal(getEls().extraClassModal);
     } catch (err) {
       console.error(err);
+      hideLoading();
       await window.showThemedAlert('Failed to save extra class: ' + err.message, { type: 'error' });
-    } finally { hideLoading(); }
+    }
   }
   async function deleteExtraClass(id) {
     var d = ensureDb();
