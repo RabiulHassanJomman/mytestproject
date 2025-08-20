@@ -401,7 +401,7 @@
     await renderExpandableResources();
   }
 
-  // Render expandable resource list for better user experience
+  // Render expandable resource list organized by course first, then by resource type
   async function renderExpandableResources() {
     try {
       var expandableListEl = qs('#expandableResourcesList');
@@ -410,65 +410,112 @@
         return;
       }
       
-      // Check if resources are loaded
+      // Check if resources and courses are loaded
       if (!cache.resourcesById || Object.keys(cache.resourcesById).length === 0) {
         expandableListEl.innerHTML = '<div class="empty-hint">No resources available yet.</div>';
         return;
       }
       
-      // Group resources by type
-      var resourcesByType = {};
+      if (!cache.coursesById || Object.keys(cache.coursesById).length === 0) {
+        expandableListEl.innerHTML = '<div class="empty-hint">No courses available yet.</div>';
+        return;
+      }
+      
+      // Group resources by course first, then by type
+      var resourcesByCourse = {};
       var resourceTypes = ['books', 'slides', 'student-notes', 'lab-reports'];
       
-      // Initialize empty arrays for each type
-      resourceTypes.forEach(function(type) {
-        resourcesByType[type] = [];
+      // Initialize course structure
+      Object.keys(cache.coursesById).forEach(function(courseId) {
+        resourcesByCourse[courseId] = {
+          course: cache.coursesById[courseId],
+          resources: {}
+        };
+        
+        // Initialize resource types for each course
+        resourceTypes.forEach(function(type) {
+          resourcesByCourse[courseId].resources[type] = [];
+        });
       });
       
-      // Populate resources by type
+      // Populate resources by course and type
       Object.values(cache.resourcesById).forEach(function(resource) {
+        var courseId = resource.courseId;
         var type = resource.type || 'books';
-        if (resourcesByType[type]) {
-          resourcesByType[type].push(resource);
+        
+        if (resourcesByCourse[courseId] && resourcesByCourse[courseId].resources[type]) {
+          resourcesByCourse[courseId].resources[type].push(resource);
         }
       });
       
       var html = '';
-      resourceTypes.forEach(function(type) {
-        var resources = resourcesByType[type];
-        var count = resources.length;
-        var typeLabel = getResourceTypeLabel(type);
-        var typeIcon = getResourceTypeIcon(type);
+      
+      // Render each course with its resources
+      Object.keys(resourcesByCourse).forEach(function(courseId) {
+        var courseData = resourcesByCourse[courseId];
+        var course = courseData.course;
+        var courseTitle = course.title || course.code || 'Untitled Course';
+        var courseCode = course.code || '';
+        var courseInstructor = course.instructor || '';
         
-        if (count > 0) {
+        // Count total resources for this course
+        var totalResources = 0;
+        resourceTypes.forEach(function(type) {
+          totalResources += courseData.resources[type].length;
+        });
+        
+        if (totalResources > 0) {
           html += (
-            '<div class="resource-section-header" data-resource-type="' + type + '">\n' +
-            '  <div class="resource-section-title">\n' +
+            '<div class="course-section-header" data-course-id="' + courseId + '">\n' +
+            '  <div class="course-section-title">\n' +
             '    <span class="expand-icon">▼</span>\n' +
-            '    <span class="resource-type-label">' + typeIcon + ' ' + typeLabel + '</span>\n' +
-            '    <span class="resource-count">(' + count + ' resource' + (count !== 1 ? 's' : '') + ')</span>\n' +
+            '    <span class="course-label">📚 ' + escapeHtml(courseTitle) + '</span>\n' +
+            '    <span class="course-details">' + escapeHtml(courseCode) + (courseInstructor ? (' | 👨‍🏫 ' + escapeHtml(courseInstructor)) : '') + '</span>\n' +
+            '    <span class="resource-count">(' + totalResources + ' resource' + (totalResources !== 1 ? 's' : '') + ')</span>\n' +
             '  </div>\n' +
             '</div>\n' +
-            '<div class="resource-section-content">\n'
+            '<div class="course-section-content">\n'
           );
           
-          resources.forEach(function(resource) {
-            var course = cache.coursesById[resource.courseId];
-            var courseLabel = course ? (course.title || course.code || resource.courseId) : (resource.courseId || 'Course');
-            var sectionBadge = resource.section && resource.section !== 'all' ? 
-              '<span class="section-badge">Section ' + escapeHtml(resource.section) + '</span>' : '';
+          // Render resource types for this course
+          resourceTypes.forEach(function(type) {
+            var resources = courseData.resources[type];
+            var count = resources.length;
             
-            html += (
-              '  <div class="resource-item">\n' +
-              '    <div class="resource-info">\n' +
-              '      <h4>' + escapeHtml(resource.title || 'Untitled') + '</h4>\n' +
-              '      <p>📚 ' + escapeHtml(courseLabel) + '</p>\n' +
-              '      ' + (resource.description ? '<p>' + escapeHtml(resource.description) + '</p>' : '') + '\n' +
-              '      ' + sectionBadge + '\n' +
-              '    </div>\n' +
-              '    <a href="' + escapeAttr(resource.url || resource.linkUrl || '#') + '" target="_blank" rel="noopener noreferrer" class="resource-link">📎 View Resource</a>\n' +
-              '  </div>\n'
-            );
+            if (count > 0) {
+              var typeLabel = getResourceTypeLabel(type);
+              var typeIcon = getResourceTypeIcon(type);
+              
+              html += (
+                '  <div class="resource-type-header" data-resource-type="' + type + '">\n' +
+                '    <div class="resource-type-title">\n' +
+                '      <span class="expand-icon">▼</span>\n' +
+                '        <span class="resource-type-label">' + typeIcon + ' ' + typeLabel + '</span>\n' +
+                '        <span class="resource-count">(' + count + ' resource' + (count !== 1 ? 's' : '') + ')</span>\n' +
+                '    </div>\n' +
+                '  </div>\n' +
+                '  <div class="resource-type-content">\n'
+              );
+              
+              // Render individual resources
+              resources.forEach(function(resource) {
+                var sectionBadge = resource.section && resource.section !== 'all' ? 
+                  '<span class="section-badge">Section ' + escapeHtml(resource.section) + '</span>' : '';
+                
+                html += (
+                  '    <div class="resource-item">\n' +
+                  '      <div class="resource-info">\n' +
+                  '        <h4>' + escapeHtml(resource.title || 'Untitled') + '</h4>\n' +
+                  '        ' + (resource.description ? '<p>' + escapeHtml(resource.description) + '</p>' : '') + '\n' +
+                  '        ' + sectionBadge + '\n' +
+                  '      </div>\n' +
+                  '      <a href="' + escapeAttr(resource.url || resource.linkUrl || '#') + '" target="_blank" rel="noopener noreferrer" class="resource-link">📎 View Resource</a>\n' +
+                  '    </div>\n'
+                );
+              });
+              
+              html += '  </div>\n';
+            }
           });
           
           html += '</div>\n';
@@ -481,8 +528,36 @@
       
       expandableListEl.innerHTML = html;
       
-      // Add click event listeners for expandable sections
-      qsa('#expandableResourcesList .resource-section-header').forEach(function(header) {
+      // Add click event listeners for course sections
+      qsa('#expandableResourcesList .course-section-header').forEach(function(header) {
+        header.addEventListener('click', function() {
+          var courseId = this.dataset.courseId;
+          var content = this.nextElementSibling;
+          var expandIcon = this.querySelector('.expand-icon');
+          
+          // Add loading state
+          this.classList.add('loading');
+          
+          // Small delay to show loading state
+          setTimeout(function() {
+            if (content.classList.contains('collapsed')) {
+              // Expand
+              content.classList.remove('collapsed');
+              expandIcon.textContent = '▼';
+            } else {
+              // Collapse
+              content.classList.add('collapsed');
+              expandIcon.textContent = '▶';
+            }
+            
+            // Remove loading state
+            header.classList.remove('loading');
+          }, 150);
+        });
+      });
+      
+      // Add click event listeners for resource type sections
+      qsa('#expandableResourcesList .resource-type-header').forEach(function(header) {
         header.addEventListener('click', function() {
           var resourceType = this.dataset.resourceType;
           var content = this.nextElementSibling;
