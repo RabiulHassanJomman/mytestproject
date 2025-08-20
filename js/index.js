@@ -1558,23 +1558,53 @@ function loadExternalScript(src) {
     });
 }
 async function ensureFirebase() {
-    if (window.db) return window.db;
+    if (window.db && window.auth && window.firebase) return window.db;
     if (!__firebaseInitPromise) {
         __firebaseInitPromise = (async () => {
-            // Load compat SDKs
-            await loadExternalScript('https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js');
-            await loadExternalScript('https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js');
-            await loadExternalScript('https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js');
-            const cfg = window.__firebaseConfig;
-            if (!cfg) throw new Error('Firebase config not found');
-            if (!window.firebase.apps || window.firebase.apps.length === 0) {
-                window.firebase.initializeApp(cfg);
+            try {
+                // Load compat SDKs
+                await loadExternalScript('https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js');
+                await loadExternalScript('https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js');
+                await loadExternalScript('https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js');
+                
+                // Wait a bit to ensure scripts are fully loaded
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                // Additional check to ensure Firebase is available
+                let attempts = 0;
+                while (attempts < 10 && (!window.firebase || !window.firebase.apps)) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    attempts++;
+                }
+                
+                const cfg = window.__firebaseConfig;
+                if (!cfg) throw new Error('Firebase config not found');
+                
+                if (!window.firebase || !window.firebase.apps || window.firebase.apps.length === 0) {
+                    window.firebase.initializeApp(cfg);
+                }
+                
+                            // Ensure all Firebase services are available
+            if (!window.firebase.auth || !window.firebase.firestore) {
+                console.error('Firebase services check failed:', {
+                    hasFirebase: !!window.firebase,
+                    hasAuth: !!window.firebase?.auth,
+                    hasFirestore: !!window.firebase?.firestore
+                });
+                throw new Error('Firebase services not properly loaded');
             }
-            window.db = window.firebase.firestore();
-            try { await window.db.enablePersistence({ synchronizeTabs: true }); } catch (e) {}
-            window.auth = window.firebase.auth();
-            if (window.auth.useDeviceLanguage) { window.auth.useDeviceLanguage(); }
-            return window.db;
+                
+                window.db = window.firebase.firestore();
+                try { await window.db.enablePersistence({ synchronizeTabs: true }); } catch (e) {}
+                window.auth = window.firebase.auth();
+                if (window.auth.useDeviceLanguage) { window.auth.useDeviceLanguage(); }
+                
+                return window.db;
+            } catch (error) {
+                console.error('Firebase initialization failed:', error);
+                __firebaseInitPromise = null; // Reset promise on failure
+                throw error;
+            }
         })();
     }
     return __firebaseInitPromise;
@@ -3290,22 +3320,51 @@ membersContainer.addEventListener('click', (e) => {
     if (profileForm) profileForm.addEventListener('submit', saveProfile);
 
     async function signInWithGoogleCuetOnly() {
+        const maxRetries = 3;
+        let retryCount = 0;
+        
+        // Show loading state
+        if (googleBtn) {
+            const originalText = googleBtn.textContent;
+            googleBtn.textContent = '🔄 Initializing...';
+            googleBtn.disabled = true;
+        }
+        
         try {
-            await ensureFirebase();
-            const provider = new window.firebase.auth.GoogleAuthProvider();
-            try { provider.setCustomParameters({ prompt: 'select_account', hd: 'student.cuet.ac.bd' }); } catch (_) {}
-
-            let result;
+            while (retryCount < maxRetries) {
             try {
-                result = await window.auth.signInWithPopup(provider);
-            } catch (popupErr) {
-                // Fallback to redirect if popup is blocked
-                if (popupErr && (popupErr.code === 'auth/popup-blocked' || popupErr.code === 'auth/popup-closed-by-user')) {
-                    await window.auth.signInWithRedirect(provider);
-                    return; // Flow will continue after redirect
+                // Update loading text
+                if (googleBtn) {
+                    googleBtn.textContent = `🔄 Attempt ${retryCount + 1}/${maxRetries}...`;
                 }
-                throw popupErr;
-            }
+                
+                await ensureFirebase();
+                
+                // Ensure Firebase Auth is properly initialized
+                if (!window.auth || !window.firebase) {
+                    console.error('Firebase auth check failed:', {
+                        hasAuth: !!window.auth,
+                        hasFirebase: !!window.firebase,
+                        authType: typeof window.auth,
+                        firebaseType: typeof window.firebase
+                    });
+                    throw new Error('Firebase authentication not properly initialized. Please refresh the page and try again.');
+                }
+                
+                const provider = new window.firebase.auth.GoogleAuthProvider();
+                try { provider.setCustomParameters({ prompt: 'select_account', hd: 'student.cuet.ac.bd' }); } catch (_) {}
+
+                let result;
+                try {
+                    result = await window.auth.signInWithPopup(provider);
+                } catch (popupErr) {
+                    // Fallback to redirect if popup is blocked
+                    if (popupErr && (popupErr.code === 'auth/popup-blocked' || popupErr.code === 'auth/popup-closed-by-user')) {
+                        await window.auth.signInWithRedirect(provider);
+                        return; // Flow will continue after redirect
+                    }
+                    throw popupErr;
+                }
 
             const user = result && result.user ? result.user : (window.auth.currentUser || null);
             const email = user && user.email ? user.email.toLowerCase() : null;
@@ -3359,8 +3418,27 @@ membersContainer.addEventListener('click', (e) => {
                 }
             } catch (_) {}
         } catch (err) {
-            console.error('Google Sign-In failed', err);
-            alert(err && err.message ? err.message : 'Sign-in failed. Please try again.');
+            console.error(`Google Sign-In attempt ${retryCount + 1} failed:`, err);
+            retryCount++;
+            
+            if (retryCount >= maxRetries) {
+                alert(err && err.message ? err.message : 'Sign-in failed after multiple attempts. Please refresh the page and try again.');
+                return;
+            }
+            
+            // Wait a bit before retrying
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            continue;
+        }
+        
+        // If we get here, sign-in was successful
+        break;
+    }
+    } finally {
+        // Always restore button state
+        if (googleBtn) {
+            googleBtn.textContent = 'Sign in with Google (CUET only)';
+            googleBtn.disabled = false;
         }
     }
 
@@ -3371,7 +3449,11 @@ membersContainer.addEventListener('click', (e) => {
         if (!confirmed) return;
         try {
             await ensureFirebase();
-            try { await window.auth.signOut(); } catch (_) {}
+            if (window.auth) {
+                try { await window.auth.signOut(); } catch (_) {}
+            }
+        } catch (error) {
+            console.warn('Firebase logout failed:', error);
         } finally {
             window.localStorage.removeItem('cuetStudentSession');
             showView('google');
@@ -3415,8 +3497,18 @@ membersContainer.addEventListener('click', (e) => {
 
     // Keep session in sync with Firebase auth state
     document.addEventListener('DOMContentLoaded', async () => {
-        try { await ensureFirebase(); } catch (_) {}
-        if (!window.auth) return;
+        try { 
+            await ensureFirebase(); 
+        } catch (error) {
+            console.warn('Firebase initialization failed on DOM load:', error);
+            return;
+        }
+        
+        if (!window.auth) {
+            console.warn('Firebase auth not available after initialization');
+            return;
+        }
+        
         window.auth.onAuthStateChanged(async (user) => {
             try {
                 if (!user) {
@@ -3429,7 +3521,9 @@ membersContainer.addEventListener('click', (e) => {
                 }
                 const email = (user.email || '').toLowerCase();
                 if (!email.endsWith('@student.cuet.ac.bd') || !isValidEduMail(email)) {
-                    try { await window.auth.signOut(); } catch (_) {}
+                    if (window.auth) {
+                        try { await window.auth.signOut(); } catch (_) {}
+                    }
                     window.localStorage.removeItem('cuetStudentSession');
                     alert('Only CUET student emails (u<id>@student.cuet.ac.bd) are allowed.');
                     return;
@@ -3444,7 +3538,9 @@ membersContainer.addEventListener('click', (e) => {
                         studentBtn.onclick = openProfileModal;
                     }
                 }
-            } catch (_) {}
+            } catch (err) {
+                console.error('Auth state change error:', err);
+            }
         });
     });
 })();
