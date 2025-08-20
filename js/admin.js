@@ -173,20 +173,20 @@
       cache.eventsById[doc.id] = ev;
       var dateStr = ev.date ? (ev.date.seconds ? new Date(ev.date.seconds * 1000).toISOString().substring(0,10) : String(ev.date)) : '';
       var urgent = ev.urgent ? '🚨 Urgent' : '📋 Normal';
-      html += '
-        <div class="notice-admin-item" data-id="' + doc.id + '">
+      html += `
+        <div class="notice-admin-item" data-id="${doc.id}">
           <div class="notice-admin-header">
             <div class="notice-admin-info">
-              <h3>' + escapeHtml(ev.title || 'Untitled') + '</h3>
-              <p>📅 ' + (dateStr || '-') + ' | ⏰ ' + (ev.time || '-') + ' | ' + urgent + '</p>
+              <h3>${escapeHtml(ev.title || 'Untitled')}</h3>
+              <p>📅 ${dateStr || '-'} | ⏰ ${ev.time || '-'} | ${urgent}</p>
             </div>
             <div class="notice-admin-actions">
               <button data-action="edit">Edit</button>
               <button class="delete-btn" data-action="delete">Delete</button>
             </div>
           </div>
-          <div class="notice-admin-content">' + escapeHtml(ev.description || '') + (ev.details ? ('<br><small>' + escapeHtml(ev.details) + '</small>') : '') + '</div>
-        </div>';
+          <div class="notice-admin-content">${escapeHtml(ev.description || '')}${ev.details ? ('<br><small>' + escapeHtml(ev.details) + '</small>') : ''}</div>
+        </div>`;
     });
     listEl.innerHTML = html;
 
@@ -221,19 +221,19 @@
     snap.forEach(function (doc) {
       var c = doc.data();
       cache.coursesById[doc.id] = c;
-      html += '
-        <div class="extra-class-admin-item" data-id="' + doc.id + '">
+      html += `
+        <div class="extra-class-admin-item" data-id="${doc.id}">
           <div class="extra-class-admin-header">
             <div class="extra-class-admin-info">
-              <h3>' + escapeHtml(c.title || 'Untitled Course') + '</h3>
-              <p>' + escapeHtml(c.code || '') + (c.instructor ? (' | 👨‍🏫 ' + escapeHtml(c.instructor)) : '') + '</p>
+              <h3>${escapeHtml(c.title || 'Untitled Course')}</h3>
+              <p>${escapeHtml(c.code || '')}${c.instructor ? (' | 👨‍🏫 ' + escapeHtml(c.instructor)) : ''}</p>
             </div>
             <div class="notice-admin-actions">
               <button data-action="edit">Edit</button>
               <button class="delete-btn" data-action="delete">Delete</button>
             </div>
           </div>
-        </div>';
+        </div>`;
     });
     listEl.innerHTML = html;
     qsa('#coursesList .extra-class-admin-item').forEach(function (row) {
@@ -262,20 +262,20 @@
       var n = doc.data();
       cache.noticesById[doc.id] = n;
       var dateStr = n.createdAt ? (n.createdAt.seconds ? new Date(n.createdAt.seconds * 1000).toLocaleString() : String(n.createdAt)) : '';
-      html += '
-        <div class="notice-admin-item" data-id="' + doc.id + '">
+      html += `
+        <div class="notice-admin-item" data-id="${doc.id}">
           <div class="notice-admin-header">
             <div class="notice-admin-info">
-              <h3>' + escapeHtml(n.title || 'Untitled Notice') + '</h3>
-              <p>🏷️ ' + escapeHtml(n.category || 'general') + (dateStr ? (' | 📅 ' + escapeHtml(dateStr)) : '') + '</p>
+              <h3>${escapeHtml(n.title || 'Untitled Notice')}</h3>
+              <p>🏷️ ${escapeHtml(n.category || 'general')}${dateStr ? (' | 📅 ' + escapeHtml(dateStr)) : ''}</p>
             </div>
             <div class="notice-admin-actions">
               <button data-action="edit">Edit</button>
               <button class="delete-btn" data-action="delete">Delete</button>
             </div>
           </div>
-          <div class="notice-admin-content">' + escapeHtml(n.content || '') + renderNoticeAttachmentsInline(n.attachments) + '</div>
-        </div>';
+          <div class="notice-admin-content">${escapeHtml(n.content || '')}${renderNoticeAttachmentsInline(n.attachments)}</div>
+        </div>`;
     });
     listEl.innerHTML = html;
     qsa('#noticesList .notice-admin-item').forEach(function (row) {
@@ -315,20 +315,20 @@
       var ex = doc.data();
       cache.extraClassesById[doc.id] = ex;
       var dateStr = ex.date ? (ex.date.seconds ? new Date(ex.date.seconds * 1000).toISOString().substring(0,10) : String(ex.date)) : '';
-      html += '
-        <div class="extra-class-admin-item" data-id="' + doc.id + '">
+      html += `
+        <div class="extra-class-admin-item" data-id="${doc.id}">
           <div class="extra-class-admin-header">
             <div class="extra-class-admin-info">
-              <h3>' + escapeHtml(ex.title || 'Untitled Extra Class') + '</h3>
-              <p>📅 ' + (dateStr || '-') + ' | 📆 ' + (ex.day || '-') + ' | ⏰ ' + (ex.time || '-') + (ex.subsection ? (' | Sub: ' + escapeHtml(ex.subsection)) : '') + '</p>
+              <h3>${escapeHtml(ex.title || 'Untitled Extra Class')}</h3>
+              <p>📅 ${dateStr || '-'} | 📆 ${ex.day || '-'} | ⏰ ${ex.time || '-'}${ex.subsection ? (' | Sub: ' + escapeHtml(ex.subsection)) : ''}</p>
             </div>
             <div class="notice-admin-actions">
               <button data-action="edit">Edit</button>
               <button class="delete-btn" data-action="delete">Delete</button>
             </div>
           </div>
-          <div class="notice-admin-content">' + (ex.description ? escapeHtml(ex.description) : '') + '</div>
-        </div>';
+          <div class="notice-admin-content">${ex.description ? escapeHtml(ex.description) : ''}</div>
+        </div>`;
     });
     listEl.innerHTML = html;
     qsa('#extraClassesList .extra-class-admin-item').forEach(function (row) {
