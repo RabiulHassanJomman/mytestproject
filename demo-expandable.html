@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Expandable Course Resources Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: #fff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .demo-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 30px;
+            backdrop-filter: blur(10px);
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #00d4ff;
+            font-size: 2.5em;
+        }
+
+        .demo-description {
+            text-align: center;
+            margin-bottom: 40px;
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 1.1em;
+            line-height: 1.6;
+        }
+
+        /* Expandable Resource Section Styles */
+        .resource-section-header {
+            background: rgba(40, 30, 90, 0.9);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            border-radius: 8px 8px 0 0;
+            padding: 15px 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 0;
+            position: relative;
+        }
+
+        .resource-section-header:hover {
+            background: rgba(0, 212, 255, 0.1);
+            border-color: rgba(0, 212, 255, 0.5);
+        }
+
+        .resource-section-header::after {
+            content: '';
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 0;
+            height: 0;
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-top: 5px solid rgba(0, 212, 255, 0.5);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .resource-section-header:hover::after {
+            opacity: 1;
+        }
+
+        .resource-section-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: #fff;
+            font-weight: 600;
+        }
+
+        .expand-icon {
+            color: #00d4ff;
+            font-size: 16px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            min-width: 20px;
+            text-align: center;
+            display: inline-block;
+        }
+
+        .resource-section-header:hover .expand-icon {
+            transform: scale(1.1);
+            color: #00ffff;
+        }
+
+        .resource-type-label {
+            font-size: 16px;
+            color: #00d4ff;
+        }
+
+        .resource-count {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.7);
+            font-weight: 500;
+            margin-left: auto;
+        }
+
+        .resource-section-content {
+            background: rgba(25, 15, 50, 0.8);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+            padding: 20px;
+            max-height: 1000px;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .resource-section-content.collapsed {
+            max-height: 0;
+            padding: 0 20px;
+            border: none;
+            opacity: 0;
+        }
+
+        .resource-section-content.collapsed .note-item {
+            display: none;
+        }
+
+        /* Smooth entrance animation for expanded content */
+        .resource-section-content:not(.collapsed) {
+            animation: slideDown 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Loading state for resource sections */
+        .resource-section-header.loading {
+            pointer-events: none;
+            opacity: 0.7;
+        }
+
+        .resource-section-header.loading .expand-icon {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        /* Focus states for accessibility */
+        .resource-section-header:focus {
+            outline: 2px solid #00d4ff;
+            outline-offset: 2px;
+        }
+
+        .resource-section-header:focus:not(:focus-visible) {
+            outline: none;
+        }
+
+        /* Enhanced note item styles for expandable sections */
+        .resource-section-content .note-item {
+            background: rgba(40, 30, 90, 0.8);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            transition: all 0.3s ease;
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .resource-section-content .note-item:hover {
+            border-color: rgba(0, 212, 255, 0.6);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0, 212, 255, 0.2);
+        }
+
+        .resource-section-content .note-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .note-info h4 {
+            color: #00d4ff;
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .note-info p {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 14px;
+            margin-bottom: 10px;
+            line-height: 1.4;
+        }
+
+        .section-badge {
+            display: inline-block;
+            background: rgba(0, 212, 255, 0.2);
+            color: #00d4ff;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            border: 1px solid rgba(0, 212, 255, 0.4);
+        }
+
+        .note-link {
+            display: inline-block;
+            background: rgba(0, 212, 255, 0.2);
+            color: #00d4ff;
+            padding: 6px 12px;
+            border-radius: 4px;
+            text-decoration: none;
+            font-size: 12px;
+            border: 1px solid rgba(0, 212, 255, 0.4);
+            transition: all 0.3s ease;
+        }
+
+        .note-link:hover {
+            background: rgba(0, 212, 255, 0.3);
+            border-color: #00d4ff;
+            transform: translateY(-1px);
+        }
+
+        .demo-section {
+            margin-bottom: 30px;
+        }
+
+        .demo-section h2 {
+            color: #00d4ff;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+
+        .features-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .features-list li {
+            background: rgba(0, 212, 255, 0.1);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .features-list li::before {
+            content: '✨ ';
+            color: #00d4ff;
+            margin-right: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-container">
+        <h1>📚 Expandable Course Resources</h1>
+        
+        <div class="demo-description">
+            Experience the enhanced user interface with expandable resource sections. 
+            Click on any section header to expand or collapse the content with smooth animations.
+        </div>
+
+        <div class="demo-section">
+            <h2>🚀 Key Features</h2>
+            <ul class="features-list">
+                <li><strong>Expandable Sections:</strong> Each resource type can be expanded or collapsed independently</li>
+                <li><strong>Resource Counts:</strong> See how many resources are available in each section</li>
+                <li><strong>Smooth Animations:</strong> Beautiful expand/collapse transitions with cubic-bezier easing</li>
+                <li><strong>Visual Feedback:</strong> Hover effects and loading states for better user experience</li>
+                <li><strong>Responsive Design:</strong> Works perfectly on all device sizes</li>
+                <li><strong>Accessibility:</strong> Proper focus states and keyboard navigation support</li>
+            </ul>
+        </div>
+
+        <div class="demo-section">
+            <h2>📖 Sample Course Resources</h2>
+            
+            <!-- Books Section -->
+            <div class="resource-section-header" data-resource-type="books">
+                <div class="resource-section-title">
+                    <span class="expand-icon">▼</span>
+                    <span class="resource-type-label">📚 Books</span>
+                    <span class="resource-count">(3 resources)</span>
+                </div>
+            </div>
+            <div class="resource-section-content">
+                <div class="note-item">
+                    <div class="note-info">
+                        <h4>Introduction to Computer Science</h4>
+                        <p>Comprehensive textbook covering fundamental concepts of computer science and programming.</p>
+                        <span class="section-badge">Section A1</span>
+                    </div>
+                    <a href="#" class="note-link">📎 View Resource</a>
+                </div>
+                <div class="note-item">
+                    <div class="note-info">
+                        <h4>Data Structures and Algorithms</h4>
+                        <p>Advanced textbook focusing on efficient data organization and algorithm design.</p>
+                        <span class="section-badge">Section B1</span>
+                    </div>
+                    <a href="#" class="note-link">📎 View Resource</a>
+                </div>
+                <div class="note-item">
+                    <div class="note-info">
+                        <h4>Database Management Systems</h4>
+                        <p>Complete guide to database design, implementation, and management.</p>
+                        <span class="section-badge">Section A2</span>
+                    </div>
+                    <a href="#" class="note-link">📎 View Resource</a>
+                </div>
+            </div>
+
+            <!-- Slides Section -->
+            <div class="resource-section-header" data-resource-type="slides">
+                <div class="resource-section-title">
+                    <span class="expand-icon">▶</span>
+                    <span class="resource-type-label">📊 Lecture Slides</span>
+                    <span class="resource-count">(5 resources)</span>
+                </div>
+            </div>
+            <div class="resource-section-content collapsed">
+                <div class="note-item">
+                    <div class="note-info">
+                        <h4>Week 1: Introduction to Programming</h4>
+                        <p>Basic programming concepts, variables, and control structures.</p>
+                        <span class="section-badge">Section A1</span>
+                    </div>
+                    <a href="#" class="note-link">📎 View Resource</a>
+                </div>
+                <div class="note-item">
+                    <div class="note-info">
+                        <h4>Week 2: Functions and Methods</h4>
+                        <p>Function definition, parameters, and return values.</p>
+                        <span class="section-badge">Section A1</span>
+                    </div>
+                    <a href="#" class="note-link">📎 View Resource</a>
+                </div>
+                <div class="note-item">
+                    <div class="note-info">
+                        <h4>Week 3: Object-Oriented Programming</h4>
+                        <p>Classes, objects, inheritance, and polymorphism.</p>
+                        <span class="section-badge">Section B1</span>
+                    </div>
+                    <a href="#" class="note-link">📎 View Resource</a>
+                </div>
+                <div class="note-item">
+                    <div class="note-info">
+                        <h4>Week 4: Data Structures</h4>
+                        <p>Arrays, linked lists, stacks, and queues.</p>
+                        <span class="section-badge">Section A2</span>
+                    </div>
+                    <a href="#" class="note-link">📎 View Resource</a>
+                </div>
+                <div class="note-item">
+                    <div class="note-info">
+                        <h4>Week 5: Algorithm Analysis</h4>
+                        <p>Time complexity, space complexity, and Big O notation.</p>
+                        <span class="section-badge">Section B2</span>
+                    </div>
+                    <a href="#" class="note-link">📎 View Resource</a>
+                </div>
+            </div>
+
+            <!-- Student Notes Section -->
+            <div class="resource-section-header" data-resource-type="student-notes">
+                <div class="resource-section-title">
+                    <span class="expand-icon">▶</span>
+                    <span class="resource-type-label">👨‍🎓 Student Notes</span>
+                    <span class="resource-count">(2 resources)</span>
+                </div>
+            </div>
+            <div class="resource-section-content collapsed">
+                <div class="note-item">
+                    <div class="note-info">
+                        <h4>Programming Assignment Solutions</h4>
+                        <p>Complete solutions and explanations for all programming assignments.</p>
+                        <span class="section-badge">Section A1</span>
+                    </div>
+                    <a href="#" class="note-link">📎 View Resource</a>
+                </div>
+                <div class="note-item">
+                    <div class="note-info">
+                        <h4>Exam Preparation Notes</h4>
+                        <p>Comprehensive study guide covering all topics for final examination.</p>
+                        <span class="section-badge">Section B1</span>
+                    </div>
+                    <a href="#" class="note-link">📎 View Resource</a>
+                </div>
+            </div>
+
+            <!-- Lab Reports Section -->
+            <div class="resource-section-header" data-resource-type="lab-reports">
+                <div class="resource-section-title">
+                    <span class="expand-icon">▶</span>
+                    <span class="resource-type-label">🧪 Lab Reports</span>
+                    <span class="resource-count">(4 resources)</span>
+                </div>
+            </div>
+            <div class="resource-section-content collapsed">
+                <div class="note-item">
+                    <div class="note-info">
+                        <h4>Lab 1: Basic Programming</h4>
+                        <p>Introduction to programming environment and basic syntax.</p>
+                        <span class="section-badge">Section A1</span>
+                    </div>
+                    <a href="#" class="note-link">📎 View Resource</a>
+                </div>
+                <div class="note-item">
+                    <div class="note-info">
+                        <h4>Lab 2: Control Structures</h4>
+                        <p>Implementing loops, conditionals, and decision-making logic.</p>
+                        <span class="section-badge">Section A1</span>
+                    </div>
+                    <a href="#" class="note-link">📎 View Resource</a>
+                </div>
+                <div class="note-item">
+                    <div class="note-info">
+                        <h4>Lab 3: Functions</h4>
+                        <p>Creating and using functions with parameters and return values.</p>
+                        <span class="section-badge">Section B1</span>
+                    </div>
+                    <a href="#" class="note-link">📎 View Resource</a>
+                </div>
+                <div class="note-item">
+                    <div class="note-info">
+                        <h4>Lab 4: Object-Oriented Programming</h4>
+                        <p>Building classes and objects with inheritance and polymorphism.</p>
+                        <span class="section-badge">Section B2</span>
+                    </div>
+                    <a href="#" class="note-link">📎 View Resource</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Demo functionality for expandable sections
+        document.addEventListener('DOMContentLoaded', function() {
+            const headers = document.querySelectorAll('.resource-section-header');
+            
+            headers.forEach(header => {
+                header.addEventListener('click', function() {
+                    const resourceType = this.dataset.resourceType;
+                    const content = this.nextElementSibling;
+                    const expandIcon = this.querySelector('.expand-icon');
+                    
+                    // Add loading state
+                    this.classList.add('loading');
+                    
+                    // Small delay to show loading state
+                    setTimeout(() => {
+                        if (content.classList.contains('collapsed')) {
+                            // Expand
+                            content.classList.remove('collapsed');
+                            expandIcon.textContent = '▼';
+                        } else {
+                            // Collapse
+                            content.classList.add('collapsed');
+                            expandIcon.textContent = '▶';
+                        }
+                        
+                        // Remove loading state
+                        this.classList.remove('loading');
+                    }, 150);
+                });
+            });
+        });
+    </script>
+</body>
+</html>
