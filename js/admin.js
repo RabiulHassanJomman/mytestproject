@@ -1,4 +1,4 @@
-// Admin credentials (in a real app, this would be server-side)
+// Admin credentials (fallback). Prefer Firebase Auth with custom admin claim.
 const ADMIN_CREDENTIALS = {
     username: 'admin',
     password: 'cse24admin'
@@ -18,6 +18,8 @@ async function ensureFirebase() {
                 }
                 window.db = window.firebase.firestore();
                 try { window.db.enablePersistence({ synchronizeTabs: true }); } catch (_) {}
+                window.auth = window.firebase.auth();
+                if (window.auth.useDeviceLanguage) { window.auth.useDeviceLanguage(); }
                 resolve(window.db);
             } catch (e) {
                 reject(e);
@@ -198,13 +200,13 @@ loginForm.addEventListener('submit', async (e) => {
     const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
     
-    if (username === ADMIN_CREDENTIALS.username && password === ADMIN_CREDENTIALS.password) {
+    // Support two modes: hardcoded fallback OR Firebase Auth session with admin claim
+    const proceedToDashboard = async () => {
         try {
             showAdminLoader();
             await ensureFirebase();
             loginScreen.style.display = 'none';
             adminDashboard.style.display = 'block';
-            // Kick off data loads concurrently to minimize total wait time
             await Promise.allSettled([
                 (async () => { try { await loadEventsFromFirebase(); } catch (e) { console.error(e); } })(),
                 (async () => { try { await loadCourses(); } catch (e) { console.error(e); } })(),
@@ -218,8 +220,36 @@ loginForm.addEventListener('submit', async (e) => {
         } finally {
             hideAdminLoader();
         }
-    } else {
-        loginError.textContent = 'Invalid username or password!';
+    };
+
+    // 1) If hardcoded matches, allow access
+    if (username === ADMIN_CREDENTIALS.username && password === ADMIN_CREDENTIALS.password) {
+        try {
+            await proceedToDashboard();
+        } catch (initErr) {
+            console.error('Failed to initialize Firebase:', initErr);
+            loginError.textContent = 'Failed to connect to database. Please try again later.';
+        }
+        return;
+    }
+
+    // 2) Otherwise, try to use current Firebase Auth session; require custom claim admin==true
+    try {
+        await ensureFirebase();
+        const user = window.auth.currentUser;
+        if (!user) {
+            loginError.textContent = 'Please sign in as admin in another tab, then retry.';
+            return;
+        }
+        const token = await user.getIdTokenResult(true);
+        if (token?.claims?.admin === true) {
+            await proceedToDashboard();
+        } else {
+            loginError.textContent = 'Your account is not authorized as admin.';
+        }
+    } catch (e2) {
+        console.error('Admin auth check failed:', e2);
+        loginError.textContent = 'Authentication failed. Use admin credentials or contact support.';
     }
 });
 
@@ -601,6 +631,7 @@ logoutBtn.addEventListener('click', async () => {
     loginScreen.style.display = 'flex';
     loginForm.reset();
     loginError.textContent = '';
+    try { await window.auth?.signOut?.(); } catch (_) {}
     alert('Logged out successfully.');
 });
 
@@ -1274,10 +1305,125 @@ function renderExtraClassesList() {
                     <h3>${subject || 'Extra Class'}</h3>
                     <p>${[dayName, date, time].filter(Boolean).join(' • ')}</p>
                 </div>
+                <div class="extra-class-actions">
+                    <button class="edit-btn" data-id="${extraClass.id}">Edit</button>
+                    <button class="delete-btn" data-id="${extraClass.id}">Delete</button>
+                </div>
             </div>
             <div class="extra-class-content">${description}</div>
         `;
 
+        const editBtn = extraClassItem.querySelector('.edit-btn');
+        const deleteBtn = extraClassItem.querySelector('.delete-btn');
+        editBtn.addEventListener('click', () => editExtraClass(extraClass.id));
+        deleteBtn.addEventListener('click', () => deleteExtraClass(extraClass.id));
+
         extraClassesList.appendChild(extraClassItem);
     });
+}
+
+// Add/Edit Extra Class handlers
+addExtraClassBtn.addEventListener('click', () => {
+    currentEditingExtraClass = null;
+    extraClassModalTitle.textContent = 'Add Extra Class';
+    extraClassForm.reset();
+    extraClassModal.style.display = 'flex';
+});
+
+function editExtraClass(id) {
+    const item = extraClassesArray.find(x => x.id === id);
+    if (!item) return;
+    currentEditingExtraClass = id;
+    extraClassModalTitle.textContent = 'Edit Extra Class';
+    document.getElementById('extraClassTitle').value = item.title || item.subject || '';
+    document.getElementById('extraClassSubject').value = item.subject || '';
+    document.getElementById('extraClassSubsection').value = item.subsection || '';
+    const date = item.date?.seconds ? new Date(item.date.seconds * 1000) : new Date(item.date || Date.now());
+    document.getElementById('extraClassDate').value = date.toISOString().slice(0,10);
+    document.getElementById('extraClassDay').value = item.day || '';
+    document.getElementById('extraClassTime').value = item.time || '';
+    document.getElementById('extraClassRoom').value = item.room || '';
+    document.getElementById('extraClassInstructor').value = item.instructor || '';
+    document.getElementById('extraClassDescription').value = item.description || item.note || '';
+    extraClassModal.style.display = 'flex';
+}
+
+async function deleteExtraClass(id) {
+    const confirmed = await window.showThemedConfirm('Delete this extra class?', { type: 'warning', okText: 'Delete', cancelText: 'Cancel' });
+    if (!confirmed) return;
+    try {
+        await db.collection('extraClasses').doc(id).delete();
+        await loadExtraClasses();
+        alert('Extra class deleted.');
+    } catch (err) {
+        console.error('Error deleting extra class:', err);
+        alert('Error deleting extra class.');
+    }
+}
+
+// Extra class form submission
+extraClassForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const data = {
+        title: document.getElementById('extraClassTitle').value.trim(),
+        subject: document.getElementById('extraClassSubject').value.trim(),
+        subsection: document.getElementById('extraClassSubsection').value || '',
+        date: new Date(document.getElementById('extraClassDate').value),
+        day: document.getElementById('extraClassDay').value,
+        time: document.getElementById('extraClassTime').value,
+        room: document.getElementById('extraClassRoom').value.trim(),
+        instructor: document.getElementById('extraClassInstructor').value.trim(),
+        description: document.getElementById('extraClassDescription').value.trim(),
+        createdAt: new Date()
+    };
+    if (!data.title || !data.subject || !data.date || !data.day || !data.time) {
+        alert('Please fill in required fields.');
+        return;
+    }
+    try {
+        if (currentEditingExtraClass) {
+            await db.collection('extraClasses').doc(currentEditingExtraClass).update(data);
+        } else {
+            await db.collection('extraClasses').add(data);
+        }
+        extraClassModal.style.display = 'none';
+        await loadExtraClasses();
+    } catch (err) {
+        console.error('Error saving extra class:', err);
+        alert('Error saving extra class.');
+    }
+});
+
+// Close handlers for extra class modal
+closeExtraClassModal.addEventListener('click', () => { extraClassModal.style.display = 'none'; });
+cancelExtraClass.addEventListener('click', () => { extraClassModal.style.display = 'none'; });
+extraClassModal.addEventListener('click', (e) => { if (e.target === extraClassModal) extraClassModal.style.display = 'none'; });
+
+// Provide local deleteExpiredItems in admin context
+async function deleteExpiredItems() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    try {
+        const eventsSnapshot = await db.collection('events').get();
+        const expiredEvents = eventsSnapshot.docs.filter(doc => {
+            const data = doc.data();
+            if (!data.date) return false;
+            const d = new Date(data.date.seconds ? data.date.seconds * 1000 : data.date);
+            d.setHours(0,0,0,0);
+            return d < today;
+        });
+        for (const docRef of expiredEvents) { await docRef.ref.delete(); }
+
+        const extraSnapshot = await db.collection('extraClasses').get();
+        const expiredExtra = extraSnapshot.docs.filter(doc => {
+            const data = doc.data();
+            if (!data.date) return false;
+            const d = new Date(data.date.seconds ? data.date.seconds * 1000 : data.date);
+            d.setHours(0,0,0,0);
+            return d < today;
+        });
+        for (const docRef of expiredExtra) { await docRef.ref.delete(); }
+    } catch (err) {
+        console.error('deleteExpiredItems failed:', err);
+    }
 }

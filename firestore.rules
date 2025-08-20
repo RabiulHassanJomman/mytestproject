@@ -1,6 +1,10 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function isAdmin() {
+      return request.auth != null && request.auth.token.admin == true;
+    }
+
     // Private profiles keyed by Firebase Auth UID
     match /profiles/{uid} {
       allow read, update, delete: if request.auth != null && request.auth.uid == uid;
@@ -44,6 +48,36 @@ service cloud.firestore {
         && request.auth.token.email.matches('^u' + studentId + '@student\\.cuet\\.ac\\.bd$')
         && request.resource.data.keys().hasOnly(['link','updatedAt'])
         && (request.resource.data.link == null || request.resource.data.link is string);
+    }
+
+    // Admin-managed collections
+    // Events
+    match /events/{docId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Notices
+    match /notices/{docId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Courses and nested resources
+    match /courses/{courseId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+
+      match /{resourceType}/{resourceId} {
+        allow read: if true;
+        allow create, update, delete: if isAdmin();
+      }
+    }
+
+    // Extra classes
+    match /extraClasses/{docId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
     }
 
     // Deny everything else by default
