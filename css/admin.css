@@ -1781,6 +1781,46 @@ body {
   transform: translateY(-1px);
 }
 
+/* Resource Actions */
+.resource-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.edit-btn,
+.delete-btn {
+  padding: 4px 8px;
+  border: 1px solid rgba(250, 21, 136, 0.4);
+  border-radius: 4px;
+  background: rgba(250, 21, 136, 0.1);
+  color: rgb(250, 21, 136);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-family: inherit;
+}
+
+.edit-btn:hover {
+  background: rgba(250, 21, 136, 0.2);
+  border-color: rgb(250, 21, 136);
+  transform: translateY(-1px);
+}
+
+.delete-btn {
+  border-color: rgba(255, 107, 107, 0.4);
+  background: rgba(255, 107, 107, 0.1);
+  color: #ff6b6b;
+}
+
+.delete-btn:hover {
+  background: rgba(255, 107, 107, 0.2);
+  border-color: #ff6b6b;
+  transform: translateY(-1px);
+}
+
 /* Responsive design for expandable resources */
 @media (max-width: 768px) {
   .course-section-header {

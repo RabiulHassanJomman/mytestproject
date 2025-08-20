@@ -90,7 +90,7 @@
       coursesList: qs('#coursesList'),
       noticesList: qs('#noticesList'),
       extraClassesList: qs('#extraClassesList'),
-      resourcesList: qs('#resourcesList'),
+
 
       // Buttons
       addEventBtn: qs('#addEventBtn'),
@@ -358,46 +358,19 @@
   // Resources CRUD and listing
   async function loadAndRenderResources() {
     var d = ensureDb();
-    var listEl = getEls().resourcesList;
-    if (!listEl) return;
-    listEl.innerHTML = '';
+    
+    // Load resources data into cache
     var snap = await d.collection('resources').orderBy('createdAt', 'desc').get();
     cache.resourcesById = {};
-    if (snap.empty) { listEl.innerHTML = '<div class="empty-hint">No resources yet.</div>'; return; }
-    var html = '';
-    snap.forEach(function (doc) {
-      var r = doc.data();
-      cache.resourcesById[doc.id] = r;
-      var course = cache.coursesById[r.courseId];
-      var courseLabel = course ? (course.title || course.code || r.courseId) : (r.courseId || 'Course');
-      var typeLabel = r.type || 'resource';
-      html += (
-        '        <div class="notice-admin-item" data-id="' + doc.id + '">\n' +
-        '          <div class="notice-admin-header">\n' +
-        '            <div class="notice-admin-info">\n' +
-        '              <h3>' + escapeHtml(r.title || 'Untitled') + '</h3>\n' +
-        '              <p>📚 ' + escapeHtml(courseLabel) + ' | 🏷️ ' + escapeHtml(typeLabel) + (r.section && r.section !== 'all' ? (' | Section ' + escapeHtml(r.section)) : '') + '</p>\n' +
-        '            </div>\n' +
-        '            <div class="notice-admin-actions">\n' +
-        '              <button data-action="edit">Edit</button>\n' +
-        '              <button class="delete-btn" data-action="delete">Delete</button>\n' +
-        '            </div>\n' +
-        '          </div>\n' +
-        '          <div class="notice-admin-content">' + escapeHtml(r.description || '') + (r.url ? ('<br><a href="' + escapeAttr(r.url) + '" target="_blank" rel="noopener noreferrer">Open link</a>') : '') + '</div>\n' +
-        '        </div>'
-      );
-    });
-    listEl.innerHTML = html;
-    qsa('#resourcesList .notice-admin-item').forEach(function (row) {
-      var id = row.getAttribute('data-id');
-      row.addEventListener('click', function (e) {
-        var action = (e.target && e.target.getAttribute('data-action')) || '';
-        if (action === 'edit') { e.preventDefault(); e.stopPropagation(); openEditResource(id); }
-        else if (action === 'delete') { e.preventDefault(); e.stopPropagation(); deleteResource(id); }
-      });
-    });
     
-    // Also render the expandable resource list
+    if (!snap.empty) {
+      snap.forEach(function (doc) {
+        var r = doc.data();
+        cache.resourcesById[doc.id] = r;
+      });
+    }
+    
+    // Render the expandable resource list
     await renderExpandableResources();
   }
 
@@ -502,14 +475,23 @@
                 var sectionBadge = resource.section && resource.section !== 'all' ? 
                   '<span class="section-badge">Section ' + escapeHtml(resource.section) + '</span>' : '';
                 
+                // Find the resource ID from cache
+                var resourceId = Object.keys(cache.resourcesById).find(function(id) {
+                  return cache.resourcesById[id] === resource;
+                }) || '';
+                
                 html += (
-                  '    <div class="resource-item">\n' +
+                  '    <div class="resource-item" data-resource-id="' + escapeAttr(resourceId) + '">\n' +
                   '      <div class="resource-info">\n' +
                   '        <h4>' + escapeHtml(resource.title || 'Untitled') + '</h4>\n' +
                   '        ' + (resource.description ? '<p>' + escapeHtml(resource.description) + '</p>' : '') + '\n' +
                   '        ' + sectionBadge + '\n' +
                   '      </div>\n' +
-                  '      <a href="' + escapeAttr(resource.url || resource.linkUrl || '#') + '" target="_blank" rel="noopener noreferrer" class="resource-link">📎 View Resource</a>\n' +
+                  '      <div class="resource-actions">\n' +
+                  '        <a href="' + escapeAttr(resource.url || resource.linkUrl || '#') + '" target="_blank" rel="noopener noreferrer" class="resource-link">📎 View Resource</a>\n' +
+                  '        <button class="edit-btn" data-action="edit">Edit</button>\n' +
+                  '        <button class="delete-btn" data-action="delete">Delete</button>\n' +
+                  '      </div>\n' +
                   '    </div>\n'
                 );
               });
@@ -581,6 +563,24 @@
             // Remove loading state
             header.classList.remove('loading');
           }, 150);
+        });
+      });
+      
+      // Add click event listeners for resource admin actions
+      qsa('#expandableResourcesList .resource-item').forEach(function(resourceItem) {
+        resourceItem.addEventListener('click', function(e) {
+          var action = e.target.getAttribute('data-action');
+          var resourceId = this.dataset.resourceId;
+          
+          if (action === 'edit' && resourceId) {
+            e.preventDefault();
+            e.stopPropagation();
+            openEditResource(resourceId);
+          } else if (action === 'delete' && resourceId) {
+            e.preventDefault();
+            e.stopPropagation();
+            deleteResource(resourceId);
+          }
         });
       });
     } catch (error) {
