@@ -3008,6 +3008,7 @@ membersContainer.addEventListener('click', (e) => {
     }
 
     function openStudentAuthModal(initialView = 'google') {
+        console.log('openStudentAuthModal called with:', initialView, 'Stack trace:', new Error().stack);
         document.getElementById('student-auth-title').textContent = '👨‍🎓 Student Login';
         showView(initialView);
         overlay.style.display = 'flex';
@@ -3394,7 +3395,9 @@ membersContainer.addEventListener('click', (e) => {
             // Switch button to profile
             if (studentBtn) {
                 studentBtn.textContent = '👤 Your Profile';
-                studentBtn.onclick = openProfileModal;
+                studentBtn.removeEventListener('click', handleStudentButtonClick);
+                studentBtn.removeEventListener('click', openProfileModal);
+                studentBtn.addEventListener('click', openProfileModal);
             }
             alert(`Welcome ${email}!`);
 
@@ -3459,7 +3462,9 @@ membersContainer.addEventListener('click', (e) => {
             showView('google');
             if (studentBtn) {
                 studentBtn.textContent = '👨‍🎓 Student Login';
-                studentBtn.onclick = () => openStudentAuthModal('google');
+                studentBtn.removeEventListener('click', handleStudentButtonClick);
+                studentBtn.removeEventListener('click', openProfileModal);
+                studentBtn.addEventListener('click', handleStudentButtonClick);
             }
             alert('Logged out successfully.');
         }
@@ -3478,25 +3483,29 @@ membersContainer.addEventListener('click', (e) => {
         } catch (_) {}
     })();
 
+    // Helper function to handle student button clicks consistently
+    function handleStudentButtonClick() {
+        const raw = window.localStorage.getItem('cuetStudentSession');
+        if (raw) {
+            try {
+                const session = JSON.parse(raw);
+                if (session && session.studentId) {
+                    // Already logged in → open profile
+                    openProfileModal();
+                    return;
+                }
+            } catch (_) {}
+        }
+        openStudentAuthModal('google');
+    }
+
     if (studentBtn) {
-        studentBtn.addEventListener('click', () => {
-            const raw = window.localStorage.getItem('cuetStudentSession');
-            if (raw) {
-                try {
-                    const session = JSON.parse(raw);
-                    if (session && session.studentId) {
-                        // Already logged in → open profile
-                        openProfileModal();
-                        return;
-                    }
-                } catch (_) {}
-            }
-            openStudentAuthModal('google');
-        });
+        studentBtn.addEventListener('click', handleStudentButtonClick);
     }
 
     // Keep session in sync with Firebase auth state
     document.addEventListener('DOMContentLoaded', async () => {
+        console.log('DOMContentLoaded event fired - checking Firebase auth state');
         try { 
             await ensureFirebase(); 
         } catch (error) {
@@ -3509,13 +3518,30 @@ membersContainer.addEventListener('click', (e) => {
             return;
         }
         
+        // Handle any pending redirect results first to prevent automatic auth flows
+        try {
+            const result = await window.auth.getRedirectResult();
+            if (result && result.user) {
+                // User was redirected back from authentication
+                // The onAuthStateChanged will handle the user state
+                console.log('Redirect result handled:', result.user.email);
+            }
+        } catch (redirectError) {
+            console.warn('Redirect result handling failed:', redirectError);
+        }
+        
         window.auth.onAuthStateChanged(async (user) => {
+            console.log('Auth state changed:', user ? user.email : 'No user');
             try {
                 if (!user) {
+                    console.log('No user - setting up login button');
                     window.localStorage.removeItem('cuetStudentSession');
                     if (studentBtn) {
                         studentBtn.textContent = '👨‍🎓 Student Login';
-                        studentBtn.onclick = () => openStudentAuthModal('google');
+                        // Remove any existing click handlers and add the consistent one
+                        studentBtn.removeEventListener('click', handleStudentButtonClick);
+                        studentBtn.removeEventListener('click', openProfileModal);
+                        studentBtn.addEventListener('click', handleStudentButtonClick);
                     }
                     return;
                 }
@@ -3535,7 +3561,10 @@ membersContainer.addEventListener('click', (e) => {
                     window.localStorage.setItem('cuetStudentSession', JSON.stringify(session));
                     if (studentBtn) {
                         studentBtn.textContent = '👤 Your Profile';
-                        studentBtn.onclick = openProfileModal;
+                        // Remove any existing click handlers and add the profile one
+                        studentBtn.removeEventListener('click', handleStudentButtonClick);
+                        studentBtn.removeEventListener('click', openProfileModal);
+                        studentBtn.addEventListener('click', openProfileModal);
                     }
                 }
             } catch (err) {
