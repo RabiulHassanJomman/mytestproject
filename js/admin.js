@@ -1176,7 +1176,16 @@
   function init() {
     try { ensureDb(); } catch (e) { console.error(e); }
     var els = getEls();
-    if (els.loginForm) els.loginForm.addEventListener('submit', handleLoginSubmit);
+    if (els.loginForm) {
+      els.loginForm.addEventListener('submit', handleLoginSubmit);
+      var loginBtn = els.loginForm.querySelector('.login-btn');
+      if (loginBtn) {
+        loginBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          handleLoginSubmit(e);
+        });
+      }
+    }
     wireBaseActions();
     setupGlobalEscapeHandler();
     populateCourseOptions().catch(function (e) { console.warn(e); });
