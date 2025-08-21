@@ -3572,6 +3572,7 @@ membersContainer.addEventListener('click', (e) => {
             }
         });
     });
+}
 })();
 
 function applyPublicProfileToUI(profileData) {
@@ -3646,4 +3647,3 @@ document.addEventListener('DOMContentLoaded', () => {
         try { subscribeToPublicProfilesUpdates(); } catch (_) {}
     }).catch(() => {});
 });
-})();
