@@ -3013,12 +3013,8 @@ membersContainer.addEventListener('click', (e) => {
         showView(initialView);
         overlay.style.display = 'flex';
         setTimeout(() => overlay.classList.add('show'), 10);
-        if (activeModal === null && window.history && window.history.pushState) {
-            window.history.pushState({ modal: 'student-auth' }, "");
-            activeModal = 'student-auth';
-        } else {
-            activeModal = 'student-auth';
-        }
+        // Removed history.pushState for student-auth to avoid unintended back navigation
+        activeModal = 'student-auth';
         preventMainPageScroll();
     }
 
@@ -3030,10 +3026,7 @@ membersContainer.addEventListener('click', (e) => {
     }
 
     function closeStudentAuthModal() {
-        if (window.history && window.history.state && window.history.state.modal === 'student-auth') {
-            window.history.back();
-            return;
-        }
+        // Close directly without history.back for student-auth
         actuallyCloseStudentAuthModal();
     }
 
@@ -3042,7 +3035,7 @@ membersContainer.addEventListener('click', (e) => {
 
     window.addEventListener('popstate', () => {
         if (activeModal === 'student-auth') {
-            actuallyCloseStudentAuthModal();
+            // No-op for student-auth: do not auto-close due to history changes
             return;
         }
         if (activeModal === 'profile') {
@@ -3052,8 +3045,9 @@ membersContainer.addEventListener('click', (e) => {
     });
 
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && activeModal === 'student-auth' && window.history && window.history.state?.modal === 'student-auth') {
-            window.history.back();
+        if (e.key === 'Escape' && activeModal === 'student-auth') {
+            // Close directly without relying on history.state
+            actuallyCloseStudentAuthModal();
         }
         if (e.key === 'Escape' && activeModal === 'profile' && window.history && window.history.state?.modal === 'profile') {
             window.history.back();
