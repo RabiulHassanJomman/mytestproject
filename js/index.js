@@ -3355,6 +3355,7 @@ membersContainer.addEventListener('click', (e) => {
                 } catch (popupErr) {
                     // Fallback to redirect if popup is blocked
                     if (popupErr && (popupErr.code === 'auth/popup-blocked' || popupErr.code === 'auth/popup-closed-by-user')) {
+                        try { window.sessionStorage.setItem('authRedirectInitiated', '1'); } catch (_) {}
                         await window.auth.signInWithRedirect(provider);
                         return; // Flow will continue after redirect
                     }
@@ -3512,16 +3513,21 @@ membersContainer.addEventListener('click', (e) => {
             return;
         }
         
-        // Handle any pending redirect results first to prevent automatic auth flows
-        try {
-            const result = await window.auth.getRedirectResult();
-            if (result && result.user) {
-                // User was redirected back from authentication
-                // The onAuthStateChanged will handle the user state
-                console.log('Redirect result handled:', result.user.email);
+        // Handle redirect results only if we initiated a redirect in this session
+        const __shouldCheckRedirect = (() => { try { return window.sessionStorage.getItem('authRedirectInitiated') === '1'; } catch (_) { return false; } })();
+        if (__shouldCheckRedirect) {
+            try {
+                const result = await window.auth.getRedirectResult();
+                if (result && result.user) {
+                    // User was redirected back from authentication
+                    // The onAuthStateChanged will handle the user state
+                    console.log('Redirect result handled:', result.user.email);
+                }
+            } catch (redirectError) {
+                console.warn('Redirect result handling failed:', redirectError);
+            } finally {
+                try { window.sessionStorage.removeItem('authRedirectInitiated'); } catch (_) {}
             }
-        } catch (redirectError) {
-            console.warn('Redirect result handling failed:', redirectError);
         }
         
         window.auth.onAuthStateChanged(async (user) => {
