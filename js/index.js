@@ -3314,7 +3314,7 @@ membersContainer.addEventListener('click', (e) => {
 
     if (profileForm) profileForm.addEventListener('submit', saveProfile);
 
-    (async function signInWithGoogleCuetOnly() {
+    async function signInWithGoogleCuetOnly() {
         const maxRetries = 3;
         let retryCount = 0;
         
