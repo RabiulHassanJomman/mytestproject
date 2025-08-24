@@ -333,6 +333,31 @@
     <script src="js/overlay-alert.js" defer></script>
     <script src="js/index.js" defer></script>
     <script>
+      // Fallback: ensure Student Login button works even if main JS fails to wire it
+      window.handleStudentButtonClick = window.handleStudentButtonClick || function() {
+        try {
+          var overlay = document.getElementById('studentAuthModalOverlay');
+          if (!overlay) return;
+          var title = document.getElementById('student-auth-title');
+          var googleView = document.getElementById('student-auth-google-view');
+          var loggedInView = document.getElementById('student-auth-loggedin');
+          if (title) title.textContent = '👨‍🎓 Student Login';
+          if (googleView) googleView.style.display = '';
+          if (loggedInView) loggedInView.style.display = 'none';
+          overlay.style.display = 'flex';
+          setTimeout(function(){ overlay.classList.add('show'); }, 10);
+          document.body.style.overflow = 'hidden';
+          var closeBtn = document.getElementById('studentAuthModalClose');
+          var close = function() {
+            overlay.classList.remove('show');
+            setTimeout(function(){ overlay.style.display = 'none'; document.body.style.overflow = 'auto'; }, 300);
+          };
+          if (closeBtn && !closeBtn._fallbackBound) { closeBtn.addEventListener('click', close); closeBtn._fallbackBound = true; }
+          if (overlay && !overlay._fallbackBound) { overlay.addEventListener('click', function(e){ if (e.target === e.currentTarget) close(); }); overlay._fallbackBound = true; }
+        } catch (e) { console.warn('Fallback student auth failed', e); }
+      };
+    </script>
+    <script>
       // Register service worker globally
       (function() {
         if ('serviceWorker' in navigator) {
