@@ -3498,6 +3498,10 @@ membersContainer.addEventListener('click', (e) => {
         studentBtn.addEventListener('click', handleStudentButtonClick);
     }
 
+    // Expose functions for fallback inline handlers and debugging
+    window.handleStudentButtonClick = handleStudentButtonClick;
+    window.openStudentAuthModal = openStudentAuthModal;
+
     // Keep session in sync with Firebase auth state
     document.addEventListener('DOMContentLoaded', async () => {
         console.log('DOMContentLoaded event fired - checking Firebase auth state');
