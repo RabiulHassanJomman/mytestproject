@@ -1598,6 +1598,11 @@ async function ensureFirebase() {
                 try { await window.db.enablePersistence({ synchronizeTabs: true }); } catch (e) {}
                 window.auth = window.firebase.auth();
                 if (window.auth.useDeviceLanguage) { window.auth.useDeviceLanguage(); }
+                try {
+                    await window.auth.setPersistence(window.firebase.auth.Auth.Persistence.LOCAL);
+                } catch (e) {
+                    console.warn('Failed to set auth persistence to LOCAL:', e);
+                }
                 
                 return window.db;
             } catch (error) {
@@ -3517,21 +3522,16 @@ membersContainer.addEventListener('click', (e) => {
             return;
         }
         
-        // Handle redirect results only if we initiated a redirect in this session
-        const __shouldCheckRedirect = (() => { try { return window.sessionStorage.getItem('authRedirectInitiated') === '1'; } catch (_) { return false; } })();
-        if (__shouldCheckRedirect) {
-            try {
-                const result = await window.auth.getRedirectResult();
-                if (result && result.user) {
-                    // User was redirected back from authentication
-                    // The onAuthStateChanged will handle the user state
-                    console.log('Redirect result handled:', result.user.email);
-                }
-            } catch (redirectError) {
-                console.warn('Redirect result handling failed:', redirectError);
-            } finally {
-                try { window.sessionStorage.removeItem('authRedirectInitiated'); } catch (_) {}
+        // Handle redirect results on every load (safe if no redirect happened)
+        try {
+            const result = await window.auth.getRedirectResult();
+            if (result && result.user) {
+                console.log('Redirect result handled:', result.user.email);
             }
+        } catch (redirectError) {
+            console.warn('Redirect result handling failed:', redirectError);
+        } finally {
+            try { window.sessionStorage.removeItem('authRedirectInitiated'); } catch (_) {}
         }
         
         window.auth.onAuthStateChanged(async (user) => {
