@@ -1,4 +1,4 @@
-const SW_VERSION = 'v1-admin-precache-2025-08-18';
+const SW_VERSION = 'v1-admin-precache-2025-08-24-1';
 const PRECACHE = `precache-${SW_VERSION}`;
 const RUNTIME = 'runtime-cache';
 
