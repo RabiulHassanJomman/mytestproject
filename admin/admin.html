@@ -23,27 +23,8 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
   </head>
   <body>
-    <!-- Login Screen -->
-    <div id="loginScreen" class="login-container">
-      <div class="login-card">
-        <h2>🔐 Admin Login</h2>
-        <form id="loginForm">
-          <div class="input-group">
-            <label for="username">Username:</label>
-            <input type="text" id="username" required />
-          </div>
-          <div class="input-group">
-            <label for="password">Password:</label>
-            <input type="password" id="password" required />
-          </div>
-          <button type="submit" class="login-btn">Login</button>
-        </form>
-        <div id="loginError" class="error-message"></div>
-      </div>
-    </div>
-
     <!-- Admin Dashboard -->
-    <div id="adminDashboard" class="admin-dashboard" style="display: none">
+    <div id="adminDashboard" class="admin-dashboard">
       <header class="admin-header">
         <h1>📊 Admin Panel</h1>
         <div class="header-controls">
