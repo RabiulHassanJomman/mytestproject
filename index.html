@@ -91,12 +91,7 @@
               📅 Class Routine
             </button>
           </div>
-          <!-- Student Login Button -->
-          <div id="student-button-container">
-            <button id="student-button" type="button" onclick="window.handleStudentButtonClick && window.handleStudentButtonClick()">
-              👨‍🎓 Student Login
-            </button>
-          </div>
+          
          </div>
         
         <div class="separator-line"></div>
@@ -138,94 +133,6 @@
       </div>
     </div>
 
-    <!-- Student Auth Modal -->
-    <div class="modal-overlay" id="studentAuthModalOverlay">
-      <div class="modal-card" id="student-auth-card">
-        <div class="student-auth-header">
-          <h2 id="student-auth-title">👨‍🎓 Student Login</h2>
-          <button class="modal-close" id="studentAuthModalClose">&times;</button>
-        </div>
-        <div id="student-auth-views">
-          <!-- View: Google Sign-In only -->
-          <div id="student-auth-google-view" class="student-auth-form">
-            <button id="studentAuthGoogleBtn" class="student-auth-btn" type="button">Sign in with Google (CUET only)</button>
-            <div class="student-auth-hint">Only CUET student emails (u<studentId>@student.cuet.ac.bd) are allowed.</div>
-          </div>
-
-          <!-- View: logged in -->
-          <div id="student-auth-loggedin" style="display:none;">
-            <p id="studentAuthWelcome"></p>
-            <button id="studentAuthLogoutBtn" class="student-auth-btn" type="button">Logout</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Profile Modal -->
-    <div class="modal-overlay" id="profileModalOverlay" style="display: none;">
-      <div class="modal-card" id="profile-card">
-        <div class="profile-header" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
-          <h2 id="profile-title">👤 Your Profile</h2>
-          <button class="modal-close" id="profileModalClose">&times;</button>
-        </div>
-          <form id="profileForm" class="student-auth-form" novalidate style="display:flex; flex-direction:column; gap:12px;">
-          <div>
-            <label for="profileName" style="display:block; margin-bottom:6px;">Full Name<span style="color:#ff4d4f"> *</span></label>
-            <input id="profileName" type="text" placeholder="Enter your full name" required />
-          </div>
-          <div>
-            <label for="profileNickname" style="display:block; margin-bottom:6px;">Nickname</label>
-            <input id="profileNickname" type="text" placeholder="Your nickname (optional)" />
-          </div>
-          <div>
-            <label for="profileStudentId" style="display:block; margin-bottom:6px;">Student ID<span style="color:#ff4d4f"> *</span></label>
-            <input id="profileStudentId" type="text" inputmode="numeric" pattern="^\\d{7}$" placeholder="7-digit ID (e.g., 2404001)" required readonly />
-            <small style="color: rgba(255,255,255,0.7); display:block; margin-top:4px;">Must match your CUET email (u<ID>@student.cuet.ac.bd)</small>
-          </div>
-          <div>
-            <label for="profileHome" style="display:block; margin-bottom:6px;">Home</label>
-            <input id="profileHome" type="text" placeholder="Your home district/city (optional)" />
-          </div>
-          <div>
-            <label for="profileSchool" style="display:block; margin-bottom:6px;">School</label>
-            <input id="profileSchool" type="text" placeholder="Your school (optional)" />
-          </div>
-          <div>
-            <label for="profileCollege" style="display:block; margin-bottom:6px;">College</label>
-            <input id="profileCollege" type="text" placeholder="Your college (optional)" />
-          </div>
-          <div>
-            <label for="profileBloodGroup" style="display:block; margin-bottom:6px;">Blood Group</label>
-            <select id="profileBloodGroup">
-              <option value="">Select blood group</option>
-              <option value="A+">A+</option>
-              <option value="A-">A-</option>
-              <option value="B+">B+</option>
-              <option value="B-">B-</option>
-              <option value="AB+">AB+</option>
-              <option value="AB-">AB-</option>
-              <option value="O+">O+</option>
-              <option value="O-">O-</option>
-            </select>
-          </div>
-          <div>
-            <label for="profileBio" style="display:block; margin-bottom:6px;">Bio</label>
-            <textarea id="profileBio" rows="4" maxlength="300" placeholder="Write a short bio (max 300 chars)"></textarea>
-            <small id="bioCounter" style="color: rgba(255,255,255,0.6); display:block; margin-top:4px;">0 / 300</small>
-          </div>
-          <div>
-            <label for="profileFacebook" style="display:block; margin-bottom:6px;">Facebook Profile Link</label>
-            <input id="profileFacebook" type="url" placeholder="https://www.facebook.com/your.profile" />
-            <small style="color: rgba(255,255,255,0.6); display:block; margin-top:4px;">Must be a valid URL. Example: https://www.facebook.com/your.profile</small>
-          </div>
-          <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:8px;">
-            <button type="button" id="profileLogoutBtn" class="student-auth-btn" style="background:#222; border:1px solid rgba(255,255,255,0.2);">Logout</button>
-            <button type="button" id="profileCancelBtn" class="student-auth-btn" style="background:#444;">Cancel</button>
-            <button type="submit" id="profileSaveBtn" class="student-auth-btn">Save</button>
-          </div>
-        </form>
-      </div>
-    </div>
 
     <!-- Events Modal -->
     <div class="modal-overlay" id="eventsModalOverlay">
