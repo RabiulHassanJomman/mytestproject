@@ -398,7 +398,7 @@
           var googleBtn = document.getElementById('studentAuthGoogleBtn');
           if (googleBtn && !googleBtn._fallbackBound) {
             googleBtn.addEventListener('click', function(){
-              if (!window.auth || !window.firebase || !window.firebase.auth) {
+              if (!window.__googleSignInBound || !window.auth || !window.firebase || !window.firebase.auth) {
                 window.__fallbackGoogleSignIn();
               }
             });

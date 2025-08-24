@@ -3440,7 +3440,7 @@ membersContainer.addEventListener('click', (e) => {
         }
     }
 
-    if (googleBtn) googleBtn.addEventListener('click', signInWithGoogleCuetOnly);
+    if (googleBtn) { googleBtn.addEventListener('click', signInWithGoogleCuetOnly); window.__googleSignInBound = true; }
 
     async function doLogout() {
         const confirmed = await window.showThemedConfirm('Are you sure you want to logout?', { type: 'warning', okText: 'Logout', cancelText: 'Stay' });
