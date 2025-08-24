@@ -358,6 +358,56 @@
       };
     </script>
     <script>
+      // Fallback: bind Google Sign-In if main JS didn't wire it
+      (function(){
+        try {
+          function loadScript(src){
+            return new Promise(function(resolve, reject){
+              var s = document.createElement('script');
+              s.src = src; s.async = true; s.defer = true;
+              s.onload = resolve; s.onerror = reject;
+              document.head.appendChild(s);
+            });
+          }
+          async function ensureFirebaseCompat(){
+            if (window.firebase && window.firebase.auth) return;
+            await loadScript('https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js');
+            await loadScript('https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js');
+            var cfg = window.__firebaseConfig;
+            if (cfg && (!window.firebase.apps || window.firebase.apps.length === 0)) {
+              window.firebase.initializeApp(cfg);
+            }
+          }
+          window.__fallbackGoogleSignIn = async function(){
+            var btn = document.getElementById('studentAuthGoogleBtn');
+            if (btn) { btn.disabled = true; btn.textContent = '🔄 Signing in...'; }
+            try {
+              await ensureFirebaseCompat();
+              if (!window.firebase || !window.firebase.auth) throw new Error('Firebase failed to load');
+              var provider = new window.firebase.auth.GoogleAuthProvider();
+              try { provider.setCustomParameters({ prompt: 'select_account', hd: 'student.cuet.ac.bd' }); } catch (_) {}
+              try { window.sessionStorage.setItem('authRedirectInitiated', '1'); } catch (_) {}
+              await window.firebase.auth().signInWithRedirect(provider);
+            } catch (e) {
+              console.warn('Fallback Google Sign-In failed', e);
+              alert(e && e.message ? e.message : 'Sign-in failed. Please refresh and try again.');
+            } finally {
+              if (btn) { btn.disabled = false; btn.textContent = 'Sign in with Google (CUET only)'; }
+            }
+          };
+          var googleBtn = document.getElementById('studentAuthGoogleBtn');
+          if (googleBtn && !googleBtn._fallbackBound) {
+            googleBtn.addEventListener('click', function(){
+              if (!window.auth || !window.firebase || !window.firebase.auth) {
+                window.__fallbackGoogleSignIn();
+              }
+            });
+            googleBtn._fallbackBound = true;
+          }
+        } catch (e) { console.warn('Fallback Google binding failed', e); }
+      })();
+    </script>
+    <script>
       // Register service worker globally
       (function() {
         if ('serviceWorker' in navigator) {
